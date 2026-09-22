@@ -7,350 +7,334 @@ import * as THREE from "three";
 import type { SceneTier } from "@/lib/motion";
 
 /* ==========================================================================
-   The hero, as an actual three-dimensional scene.
+   The moving half of the hero.
    --------------------------------------------------------------------------
-   The photograph is not an <img> sitting behind the type. It is a textured
-   surface inside a WebGL scene, driven by a depth map.
+   The photograph froze a pour: beans suspended in the air, a plume of steam
+   off the cup. This canvas gives that back its time.
 
-   Two things make it read as space rather than as a picture:
+   What is on it, and what is deliberately not:
 
-   1. DEPTH PARALLAX. A greyscale depth map accompanies the photograph. In
-      the fragment stage the sampling coordinate is displaced by
-      (depth − mid) × pointer, so the cup, the bed of beans and the dark air
-      behind them all shift by different amounts as the cursor moves. That
-      differential is what the eye reads as depth; a whole image sliding as
-      one piece is what the eye reads as a sticker.
+   • The beans are the photograph's own beans. scripts/build-hero-layers.py
+     cuts each one out of the original frame with its own alpha, motion blur
+     and all, and they are used here as textures on billboarded planes. They
+     are not drawn, not modelled and not stand-ins — they are the same beans,
+     falling slowly instead of hanging still.
 
-      It is done in the fragment stage rather than by displacing vertices.
-      Vertex displacement tears a silhouette apart wherever depth changes
-      abruptly — exactly where the cup meets the black behind it, which is
-      the one edge in this frame that has to hold.
+   • The steam is the photograph's own plume, lifted as a soft alpha field and
+     released in overlapping puffs that rise, spread and thin out.
 
-   2. LUMINANCE KEYING. The photograph's background is near-black, and so is
-      the page. The shader fades alpha out as luminance falls, so the frame
-      has no edge at all: the lit cup and the lit beans are simply present in
-      the page, and the dark parts *are* the page. This is what removes the
-      "photo pasted on top" quality — there is no rectangle left to see.
+   • The cup is NOT here. It is a normal <img> in HeroStage sitting *in front*
+     of this canvas. That is the whole architecture, and it is what removes
+     the flash on reload: there is no second copy of the photograph to fade
+     into, so there is nothing to see swapping over. It also buys perfect
+     occlusion for nothing — the cup image is alpha cut-out, so beans falling
+     behind it vanish behind its silhouette and reappear nowhere, and steam
+     rises from behind the rim exactly as it should.
 
-   Nothing else is in the frame. An earlier pass added instanced beans, steam
-   plumes and gold dust in front of the cup; they cluttered a photograph that
-   already has its own splash and bed of grounds, and — being the only thing
-   the flat first paint could not show — they were also what made the
-   handover to WebGL visible on reload.
-
-   The depth map is generated offline (see scripts/build-hero-depth.py) and
-   ships as a 32KB PNG. There is no model to load at runtime.
+   • Nothing fades in. The beans start above the top of the frame and fall in;
+     the puffs start transparent and grow. So the moment this canvas mounts,
+     a second or two after the page paints, the screen does not change — the
+     air simply starts moving.
    ========================================================================== */
 
-const PHOTO_URL = "/images/hero-cup.jpg";
-const DEPTH_URL = "/images/hero-cup-depth.png";
-/** The source photograph is 2:3 portrait. */
-const PHOTO_ASPECT = 1400 / 2100;
+const BEAN_URLS = [
+  "/images/hero-bean-0.png",
+  "/images/hero-bean-1.png",
+  "/images/hero-bean-2.png",
+  "/images/hero-bean-3.png",
+  "/images/hero-bean-4.png",
+  "/images/hero-bean-5.png",
+];
+const STEAM_URL = "/images/hero-steam.png";
 
-/**
- * The fraction of the viewport width the plate occupies on a wide screen.
- *
- * This number is shared with the CSS fallback in HeroStage (`md:w-[64%]`) and
- * it has to stay shared. When the two disagreed, `object-fit: cover` and the
- * shader's cover maths cropped the photograph to different rectangles, and the
- * handover from the flat image to the scene showed the cup visibly jump in
- * size and position — the "two interfaces colliding" on every reload.
- *
- * With one width, both paths compute the same crop and the crossfade is
- * invisible.
- */
+/* The canvas is aligned to the same 64% right-hand column that the cup image
+   occupies, so world units here map onto the photograph. */
 const PLATE_WIDTH = 0.64;
-/** Right-aligned: the plate's centre sits this far across the viewport. */
-const PLATE_CENTRE = 1 - PLATE_WIDTH / 2;
-/** Matches `object-position: 58%` vertically on the CSS fallback. */
-const PLATE_FOCUS_Y = -0.028;
+
+/** Where the beans fall, in world units, relative to the cup's centre. */
+const SPAWN_TOP = 3.4;
+const FALL_BOTTOM = -0.9; // about the height of the rim: they land in the cup
 
 /* --------------------------------------------------------------------------
-   The depth-parallax surface
+   Textures
    -------------------------------------------------------------------------- */
 
-const PLATE_VERTEX = /* glsl */ `
-  varying vec2 vUv;
-
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const PLATE_FRAGMENT = /* glsl */ `
-  precision highp float;
-
-  uniform sampler2D uPhoto;
-  uniform sampler2D uDepth;
-  uniform vec2 uPointer;     // −1…1, already smoothed
-  uniform float uTime;
-  uniform float uPlaneAspect;
-  uniform float uPhotoAspect;
-  uniform vec2 uFocus;       // which part of the photo to keep in frame
-  uniform float uStrength;   // parallax amount, in UV units
-  uniform float uZoom;
-
-  varying vec2 vUv;
-
-  /* Object-fit: cover, in UV space. Doing the fit here rather than by
-     resizing the plane means the scene stays correct at every viewport
-     aspect without any JavaScript re-layout. */
-  vec2 coverUv(vec2 uv) {
-    vec2 scaled = uv;
-    float ratio = uPlaneAspect / uPhotoAspect;
-
-    if (ratio > 1.0) {
-      scaled.y = (uv.y - 0.5) / ratio + 0.5;
-    } else {
-      scaled.x = (uv.x - 0.5) * ratio + 0.5;
-    }
-
-    // A slow breath, so the frame is never completely still.
-    float breathe = 1.0 + sin(uTime * 0.12) * 0.012;
-    scaled = (scaled - 0.5) / (uZoom * breathe) + 0.5;
-
-    return scaled + uFocus;
-  }
-
-  void main() {
-    vec2 base = coverUv(vUv);
-
-    // First pass: read depth at the unshifted position.
-    float d0 = texture2D(uDepth, clamp(base, 0.0, 1.0)).r;
-
-    // Displace, then re-read depth at the displaced position and displace
-    // again. Two iterations is enough to stop the near layer smearing over
-    // the far one at the silhouette, and costs one extra texture fetch.
-    vec2 shift = (d0 - 0.45) * uStrength * uPointer;
-    float d1 = texture2D(uDepth, clamp(base + shift, 0.0, 1.0)).r;
-    vec2 finalShift = (d1 - 0.45) * uStrength * uPointer;
-
-    vec2 uv = base + finalShift;
-
-    // Outside the photograph entirely: nothing to draw.
-    if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {
-      discard;
-    }
-
-    vec4 photo = texture2D(uPhoto, uv);
-    float depth = texture2D(uDepth, uv).r;
-
-    float lum = dot(photo.rgb, vec3(0.2126, 0.7152, 0.0722));
-
-    /* Luminance key. The photograph's ground is near-black and so is the
-       page, so fading alpha with luminance dissolves the frame's edge
-       completely. The curve is deliberately gentle: a hard cut would leave a
-       crunchy matte around the beans. */
-    float alpha = smoothstep(0.012, 0.16, lum);
-
-    // Feather the outer few percent as well, so the plane cannot show a
-    // straight edge even where the photograph happens to be bright.
-    vec2 edge = smoothstep(vec2(0.0), vec2(0.07), uv) *
-                smoothstep(vec2(0.0), vec2(0.07), 1.0 - uv);
-    alpha *= edge.x * edge.y;
-
-    vec3 color = photo.rgb;
-
-    // Warm the near field and cool the far field very slightly — the same
-    // trick a colourist uses to separate a subject from its background.
-    color = mix(color * vec3(0.94, 0.95, 1.0), color * vec3(1.06, 1.01, 0.95), depth);
-
-    // A brass sheen that travels with the pointer across the near surfaces.
-    float sheen = exp(-pow(distance(uv, vec2(0.5 + uPointer.x * 0.12, 0.62 + uPointer.y * 0.08)), 2.0) * 9.0);
-    color += vec3(0.79, 0.63, 0.36) * sheen * depth * 0.09;
-
-    gl_FragColor = vec4(color, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
 /**
- * Loads and configures the two textures this scene owns.
+ * Loads a set of textures and owns them.
  *
- * Deliberately not `useLoader`: that hook hands back cached textures owned by
- * the loader, and configuring them means mutating a value this component did
- * not create — which the React compiler is right to object to, and which
- * would also leak settings into any other component that loaded the same URL.
- * Loading them here makes ownership unambiguous, including disposal.
+ * Not `useLoader`: that returns textures owned by the loader's cache, and
+ * configuring them means mutating something this component did not create —
+ * which leaks settings into anything else that loads the same URL, and which
+ * the React compiler is right to reject.
  */
-function useHeroTextures() {
-  const [textures, setTextures] = useState<{
-    photo: THREE.Texture;
-    depth: THREE.Texture;
-  } | null>(null);
+function useTextures(urls: readonly string[]) {
+  const [textures, setTextures] = useState<THREE.Texture[] | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const loader = new THREE.TextureLoader();
+    const loaded: THREE.Texture[] = [];
 
-    const load = (url: string) =>
-      new Promise<THREE.Texture>((resolve, reject) =>
-        loader.load(url, resolve, undefined, reject)
-      );
-
-    Promise.all([load(PHOTO_URL), load(DEPTH_URL)])
-      .then(([photo, depth]) => {
+    Promise.all(
+      urls.map(
+        (url) =>
+          new Promise<THREE.Texture>((resolve, reject) =>
+            loader.load(url, resolve, undefined, reject)
+          )
+      )
+    )
+      .then((result) => {
         if (cancelled) {
-          photo.dispose();
-          depth.dispose();
+          result.forEach((t) => t.dispose());
           return;
         }
-
-        for (const texture of [photo, depth]) {
-          texture.minFilter = THREE.LinearFilter;
-          texture.magFilter = THREE.LinearFilter;
-          texture.wrapS = THREE.ClampToEdgeWrapping;
-          texture.wrapT = THREE.ClampToEdgeWrapping;
-          texture.generateMipmaps = false;
-        }
-
-        photo.colorSpace = THREE.SRGBColorSpace;
-        // The depth map is data, not a picture — reading it through the sRGB
-        // transfer function would bend every distance in the scene.
-        depth.colorSpace = THREE.NoColorSpace;
-
-        setTextures({ photo, depth });
+        result.forEach((texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          texture.anisotropy = 4;
+          texture.needsUpdate = true;
+          loaded.push(texture);
+        });
+        setTextures(result);
       })
-      .catch((error) => {
-        // The flat <img> underneath is still on screen, so a failed texture
-        // load costs the 3D effect and nothing else.
-        console.warn("[mysa] hero textures unavailable:", error);
+      .catch(() => {
+        /* A missing sprite must not take the page down: the hero is still a
+           photograph without it. */
       });
 
     return () => {
       cancelled = true;
+      loaded.forEach((texture) => texture.dispose());
     };
-  }, []);
-
-  useEffect(() => {
-    if (!textures) return;
-    return () => {
-      textures.photo.dispose();
-      textures.depth.dispose();
-    };
-  }, [textures]);
+  }, [urls]);
 
   return textures;
 }
 
-function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>; tier: SceneTier }) {
-  const material = useRef<THREE.ShaderMaterial>(null);
-  const viewport = useThree((state) => state.viewport);
-  const size = useThree((state) => state.size);
-  const textures = useHeroTextures();
+/* --------------------------------------------------------------------------
+   Beans
+   -------------------------------------------------------------------------- */
 
-  const photo = textures?.photo ?? null;
-  const depth = textures?.depth ?? null;
+type BeanSeed = {
+  texture: number;
+  x: number;
+  z: number;
+  scale: number;
+  speed: number;
+  offset: number;
+  spin: number;
+  sway: number;
+  swayPhase: number;
+};
 
-  const uniforms = useMemo(
-    () => ({
-      uPhoto: { value: photo },
-      uDepth: { value: depth },
-      uPointer: { value: new THREE.Vector2() },
-      uTime: { value: 0 },
-      uPlaneAspect: { value: 1 },
-      uPhotoAspect: { value: PHOTO_ASPECT },
-      // Slides the visible window down the photograph so the cup and the
-      // bed of beans are in frame and the empty black above them is not.
-      uFocus: { value: new THREE.Vector2(0.0, PLATE_FOCUS_Y) },
-      uStrength: { value: tier === "full" ? 0.125 : 0.08 },
-      // No extra zoom: `cover` against a plane of the same shape as the CSS
-      // box already produces the same crop.
-      uZoom: { value: 1.0 },
-    }),
-    [photo, depth, tier]
+/**
+ * Deterministic seeds.
+ *
+ * A seeded generator rather than Math.random, so the arrangement is the same
+ * on the server, on the client and in every screenshot of a regression test.
+ * Random heroes are heroes you cannot diff.
+ */
+function makeSeeds(count: number, textureCount: number): BeanSeed[] {
+  let state = 0x9e3779b9 >>> 0;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+
+  return Array.from({ length: count }, (_, index) => {
+    // Spread across the cup's mouth, biased hard to the middle — a pour is a
+    // cone, not a curtain. The camera sees about ±1.96 world units across and
+    // the cup's mouth is roughly ±0.9 of that, so anything wider than this
+    // rains down beside the cup instead of into it.
+    const spread = (random() - 0.5) * 2;
+    return {
+      texture: index % textureCount,
+      x: spread * Math.abs(spread) * 0.62,
+      z: (random() - 0.5) * 1.6,
+      // Sized to match the beans already in the photograph, which are 50–90px
+      // in a 1400px-wide plate. Bigger than that and the falling ones read as
+      // a different, closer object.
+      scale: 0.13 + random() * 0.13,
+      // Slowly. The brief asked for pouring, not raining: a bean crosses the
+      // frame in eight to fourteen seconds.
+      speed: 0.3 + random() * 0.22,
+      offset: random(),
+      spin: (random() - 0.5) * 0.5,
+      sway: 0.05 + random() * 0.12,
+      swayPhase: random() * Math.PI * 2,
+    };
+  });
+}
+
+function Beans({
+  seeds,
+  textures,
+  pointer,
+}: {
+  seeds: BeanSeed[];
+  textures: THREE.Texture[];
+  pointer: React.RefObject<THREE.Vector2>;
+}) {
+  const group = useRef<THREE.Group>(null);
+
+  const materials = useMemo(
+    () =>
+      textures.map(
+        (map) =>
+          new THREE.MeshBasicMaterial({
+            map,
+            transparent: true,
+            depthWrite: false,
+            toneMapped: false,
+          })
+      ),
+    [textures]
   );
 
-  useFrame((state, delta) => {
-    const mat = material.current;
-    if (!mat) return;
+  useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
 
-    mat.uniforms.uTime.value += delta;
-    // The shader's `cover` fit needs the *plane's* aspect, not the canvas's.
-    // The breakpoint is in CSS pixels so that it matches Tailwind's `md`
-    // exactly — the CSS fallback switches to the narrow layout at the same
-    // width, and a mismatch here would reintroduce the crop jump.
-    const wideNow = state.size.width >= 768;
-    const planeW = state.viewport.width * (wideNow ? PLATE_WIDTH : 1);
-    mat.uniforms.uPlaneAspect.value = planeW / state.viewport.height;
+  useFrame((state) => {
+    const host = group.current;
+    if (!host) return;
 
+    const time = state.clock.elapsedTime;
+    const travel = SPAWN_TOP - FALL_BOTTOM;
+
+    host.children.forEach((child, index) => {
+      const seed = seeds[index];
+      if (!seed) return;
+
+      // A sawtooth in normalised height, so every bean loops for ever without
+      // any bookkeeping and without a moment where they all reset together.
+      const progress = (seed.offset + time * seed.speed * 0.1) % 1;
+      const y = SPAWN_TOP - progress * travel;
+
+      child.position.set(
+        seed.x + Math.sin(time * seed.sway + seed.swayPhase) * 0.14,
+        y,
+        seed.z
+      );
+      child.rotation.z = seed.swayPhase + time * seed.spin;
+
+      // Fade in at the top and out at the bottom. The top fade is what makes
+      // the canvas's arrival invisible; the bottom fade is the bean arriving
+      // in the coffee.
+      const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      material.opacity =
+        Math.min(1, progress / 0.12) * Math.min(1, (1 - progress) / 0.18);
+    });
+
+    // The whole shower answers the pointer a little more than the cup behind
+    // it does. That difference is the depth.
     const target = pointer.current;
     if (target) {
-      // Heavily damped. The parallax should feel like the scene has weight,
-      // not like it is glued to the cursor.
-      mat.uniforms.uPointer.value.lerp(target, 0.035);
+      host.position.x = THREE.MathUtils.lerp(host.position.x, target.x * 0.22, 0.04);
+      host.position.y = THREE.MathUtils.lerp(host.position.y, target.y * 0.12, 0.04);
     }
   });
 
-  // Nothing to draw until both textures have arrived; the flat image is
-  // still visible underneath until the handover.
-  if (!photo || !depth) return null;
-
-  /* The plate occupies the same rectangle as the CSS fallback: right-aligned,
-     PLATE_WIDTH of the viewport on a wide screen, full width on a narrow one.
-
-     Sizing the plane to the whole viewport was the first attempt, and it
-     stretched a 2:3 portrait across a 16:9 frame: `cover` then cropped to the
-     middle 40% of the photograph and arrived as an enormous close-up of the
-     rim. The plane has to be the shape of the hole it is filling before
-     `cover` means anything sensible. */
-  const wide = size.width >= 768;
-  const planeWidth = viewport.width * (wide ? PLATE_WIDTH : 1);
-  const planeX = wide ? viewport.width * (PLATE_CENTRE - 0.5) : 0;
-
   return (
-    <mesh position={[planeX, 0, 0]}>
-      <planeGeometry args={[planeWidth, viewport.height, 1, 1]} />
-      <shaderMaterial
-        ref={material}
-        vertexShader={PLATE_VERTEX}
-        fragmentShader={PLATE_FRAGMENT}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-      />
-    </mesh>
+    <group ref={group}>
+      {seeds.map((seed, index) => {
+        const texture = textures[seed.texture];
+        const aspect = texture.image
+          ? (texture.image as HTMLImageElement).width /
+            (texture.image as HTMLImageElement).height
+          : 1;
+        return (
+          <mesh key={index} material={materials[seed.texture]}>
+            <planeGeometry args={[seed.scale * aspect, seed.scale]} />
+          </mesh>
+        );
+      })}
+    </group>
   );
 }
 
 /* --------------------------------------------------------------------------
-   Camera
+   Steam
    -------------------------------------------------------------------------- */
 
-/**
- * A slow dolly and orbit driven by the pointer.
- *
- * This is the other half of the 3D read. Parallax inside the photograph says
- * "this image has depth"; moving the camera through the scene says "you are
- * looking into a space". The movement is a couple of degrees, damped hard,
- * and it always returns to centre.
- */
-function CameraRig({ pointer }: { pointer: React.RefObject<THREE.Vector2> }) {
-  useFrame((state, delta) => {
-    const target = pointer.current;
-    if (!target) return;
+type PuffSeed = {
+  x: number;
+  z: number;
+  scale: number;
+  speed: number;
+  offset: number;
+  drift: number;
+};
 
-    // Taken from the frame state rather than destructured from useThree() in
-    // render: the camera is an object this component animates, not a value it
-    // reads, and reaching for it here keeps that honest.
-    const camera = state.camera;
+function makePuffs(count: number): PuffSeed[] {
+  let state = 0x85ebca6b >>> 0;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
 
-    const tx = target.x * 0.33;
-    const ty = target.y * 0.22;
+  return Array.from({ length: count }, (_, index) => ({
+    x: (random() - 0.5) * 0.34,
+    z: -0.2 - random() * 0.5,
+    scale: 0.85 + random() * 0.5,
+    speed: 0.055 + random() * 0.035,
+    offset: index / count + random() * 0.05,
+    drift: (random() - 0.5) * 0.3,
+  }));
+}
 
-    camera.position.x = THREE.MathUtils.damp(camera.position.x, tx, 1.6, delta);
-    camera.position.y = THREE.MathUtils.damp(camera.position.y, ty, 1.6, delta);
-    camera.position.z = THREE.MathUtils.damp(
-      camera.position.z,
-      5 - Math.abs(target.y) * 0.12 + Math.sin(state.clock.elapsedTime * 0.14) * 0.05,
-      1.2,
-      delta
-    );
-    camera.lookAt(0, 0, 0);
+function Steam({ seeds, texture }: { seeds: PuffSeed[]; texture: THREE.Texture }) {
+  const group = useRef<THREE.Group>(null);
+
+  const materials = useMemo(
+    () =>
+      seeds.map(
+        () =>
+          new THREE.MeshBasicMaterial({
+            map: texture,
+            transparent: true,
+            depthWrite: false,
+            opacity: 0,
+            toneMapped: false,
+            blending: THREE.AdditiveBlending,
+          })
+      ),
+    [seeds, texture]
+  );
+
+  useEffect(() => () => materials.forEach((m) => m.dispose()), [materials]);
+
+  useFrame((state) => {
+    const host = group.current;
+    if (!host) return;
+    const time = state.clock.elapsedTime;
+
+    host.children.forEach((child, index) => {
+      const seed = seeds[index];
+      if (!seed) return;
+
+      const progress = (seed.offset + time * seed.speed) % 1;
+
+      // Vapour rises, widens and thins. All three at once, or it reads as a
+      // texture sliding upward — which is what cheap steam always looks like.
+      const rise = -0.55 + progress * 2.1;
+      const spread = 1 + progress * 0.85;
+
+      child.position.set(seed.x + progress * seed.drift, rise, seed.z);
+      child.scale.set(spread, spread, 1);
+
+      const material = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      material.opacity =
+        0.38 * Math.min(1, progress / 0.25) * Math.max(0, 1 - progress) ** 1.4;
+    });
   });
 
-  return null;
+  return (
+    <group ref={group}>
+      {seeds.map((seed, index) => (
+        <mesh key={index} material={materials[index]}>
+          <planeGeometry args={[seed.scale * 0.55, seed.scale * 1.3]} />
+        </mesh>
+      ))}
+    </group>
+  );
 }
 
 /* --------------------------------------------------------------------------
@@ -404,6 +388,27 @@ function RenderGate({ active }: { active: boolean }) {
   return null;
 }
 
+function Contents({ tier, pointer }: { tier: SceneTier; pointer: React.RefObject<THREE.Vector2> }) {
+  const beanTextures = useTextures(BEAN_URLS);
+  const steamTextures = useTextures(useMemo(() => [STEAM_URL], []));
+
+  const full = tier === "full";
+  const seeds = useMemo(
+    () => makeSeeds(full ? 18 : 10, BEAN_URLS.length),
+    [full]
+  );
+  const puffs = useMemo(() => makePuffs(full ? 5 : 3), [full]);
+
+  return (
+    <>
+      {steamTextures?.[0] ? <Steam seeds={puffs} texture={steamTextures[0]} /> : null}
+      {beanTextures ? (
+        <Beans seeds={seeds} textures={beanTextures} pointer={pointer} />
+      ) : null}
+    </>
+  );
+}
+
 export default function HeroScene({ tier }: { tier: SceneTier }) {
   const pointer = usePointerTracking();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -445,11 +450,15 @@ export default function HeroScene({ tier }: { tier: SceneTier }) {
   const full = tier === "full";
 
   return (
-    <div ref={hostRef} className="absolute inset-0">
+    <div
+      ref={hostRef}
+      /* Aligned to the cup image's own column so that "above the cup" in this
+         scene is above the cup on screen, at every viewport width. */
+      className="absolute inset-y-0 right-0 w-full md:w-[64%]"
+      style={{ ["--plate-width" as string]: PLATE_WIDTH }}
+    >
       <Canvas
-        // Hard ceiling of 2, lower on the lite tier. A 3× device pixel ratio
-        // quadruples the fragment cost of the parallax shader for a
-        // difference nobody can see.
+        // Hard ceiling of 2, lower on the lite tier.
         dpr={[1, full ? 2 : 1.4]}
         gl={{
           antialias: full,
@@ -459,28 +468,10 @@ export default function HeroScene({ tier }: { tier: SceneTier }) {
         }}
         camera={{ position: [0, 0, 5], fov: 42, near: 0.1, far: 30 }}
         style={{ background: "transparent" }}
-        onCreated={({ gl }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.06;
-        }}
       >
         <Suspense fallback={null}>
           <RenderGate active={active} />
-          <CameraRig pointer={pointer} />
-
-          {/* No lights: the plate is a ShaderMaterial and does its own
-              grading, so lamps in the scene would cost uniforms and change
-              nothing on screen. */}
-
-          {/* The photograph, and nothing in front of it.
-              An earlier pass threw instanced beans and steam plumes across
-              the cup. They read as clutter over a picture that already has
-              its own splash and grounds, and they were the one thing that
-              differed between the flat first paint and the WebGL scene — so
-              removing them also makes the handover invisible. The depth
-              displacement, the parallax and the brass sheen are what make
-              this three-dimensional; the confetti never was. */}
-          <DepthPlate pointer={pointer} tier={tier} />
+          <Contents tier={tier} pointer={pointer} />
         </Suspense>
       </Canvas>
     </div>

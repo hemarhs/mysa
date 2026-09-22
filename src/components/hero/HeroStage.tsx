@@ -5,38 +5,52 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/cn";
-import { BLUR } from "@/lib/images";
 import { detectSceneTier, type SceneTier } from "@/lib/motion";
 
 /**
- * The hero: a photograph that becomes a three-dimensional scene.
+ * The hero: a cut-out photograph with moving air behind it.
  *
- * Two layers, and the handover between them is the whole design:
+ * The important thing here is what *doesn't* happen. An earlier version
+ * painted the photograph twice — first as an <img>, then again as a WebGL
+ * surface that cross-faded over the top of it. Two renderers, two crops, two
+ * colour pipelines, and on every reload you watched one hand over to the
+ * other. That is the flash.
  *
- *   • The `<Image>` below paints first. It is the LCP element — a normal,
- *     priority-fetched, blur-placeholdered next/image, which is the fastest
- *     large paint the browser knows how to do. A WebGL canvas can never be
- *     an LCP candidate, so starting with one would cost real Lighthouse
- *     points for a hero nobody has seen yet.
+ * So there is one photograph now, and it is this <img>. It never moves aside
+ * and nothing fades over it. It is also the Largest Contentful Paint element,
+ * which is exactly what you want it to be: a priority-fetched next/image is
+ * the fastest large paint a browser knows how to do, and a canvas can never
+ * be an LCP candidate at all.
  *
- *   • Once the browser is idle and the device has been judged capable,
- *     `HeroScene` mounts underneath, renders the same photograph as a
- *     depth-displaced surface with beans and steam falling in front of and
- *     behind it, and the flat image cross-fades away.
+ * Behind it — literally behind, at a lower z — a transparent canvas drops the
+ * photograph's own coffee beans through the air and lifts its own steam off
+ * the cup. Because the image is an alpha cut-out with no background, two
+ * things follow for free:
  *
- * On a phone, on a machine without WebGL, and for anyone who has asked for
- * less motion, the handover simply never happens and the photograph is the
- * hero. That is not a degraded state — it is the same picture.
+ *   • the beans and the steam are visible through every transparent pixel,
+ *     which is all of the air, and
+ *   • the cup occludes them perfectly, because it is opaque. A bean falling
+ *     behind the rim disappears behind the rim.
+ *
+ * And because the beans enter from above the frame and the steam starts at
+ * zero opacity, the canvas's arrival — a beat after first paint, once the
+ * browser is idle — changes nothing on screen. The air just starts moving.
+ *
+ * On a phone, on a machine without WebGL and for anyone who has asked for
+ * less motion, the canvas never mounts. The hero is the photograph, which is
+ * the same photograph either way.
  */
 const HeroScene = dynamic(() => import("./HeroScene"), {
   ssr: false,
   loading: () => null,
 });
 
+/** Shared with HeroScene: the column the photograph occupies on a wide
+ *  screen. Both have to agree or the beans fall past the wrong cup. */
+const PLATE_CLASS = "md:w-[64%]";
+
 export function HeroStage() {
   const [tier, setTier] = useState<SceneTier>("none");
-  const [sceneVisible, setSceneVisible] = useState(false);
-  const [plateLoaded, setPlateLoaded] = useState(false);
 
   useEffect(() => {
     const decided = detectSceneTier();
@@ -59,90 +73,38 @@ export function HeroStage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (tier === "none") return;
-    // A beat after the chunk mounts, so the first WebGL frame has landed
-    // before the flat image starts to leave. Swapping them on the same frame
-    // shows a hole.
-    const timer = window.setTimeout(() => setSceneVisible(true), 480);
-    return () => window.clearTimeout(timer);
-  }, [tier]);
-
   return (
     <div className="absolute inset-0 -z-10 overflow-hidden" aria-hidden>
-      {/* --- Flat plate: first paint, and the permanent fallback ---------- */}
-      <div
-        className={cn(
-          // PLATE_WIDTH below is the single source of truth for this box's
-          // width; the WebGL plate is sized from the same constant, so the
-          // two crops cannot drift apart.
-          "absolute inset-y-0 right-0 w-full transition-opacity duration-[1500ms] ease-[cubic-bezier(0.16,1,0.3,1)] md:w-[64%]",
-          sceneVisible ? "opacity-0" : "opacity-100"
-        )}
-      >
-        {/* The drift only starts once the photograph has actually decoded.
-            Animating a transform over an image that is still arriving makes
-            the browser rasterise it repeatedly while it is trying to paint it
-            for the first time — the animation competes with the very paint
-            that LCP measures. Waiting costs nothing: there is nothing to
-            drift until the picture is there. */}
-        <div
-          className={cn(
-            "absolute inset-0",
-            plateLoaded &&
-              "motion-safe:animate-[hero-drift_30s_cubic-bezier(0.25,0.46,0.45,0.94)_alternate_infinite]"
-          )}
-        >
-          <Image
-            src="/images/hero-cup.jpg"
-            alt=""
-            fill
-            priority
-            fetchPriority="high"
-            sizes="(max-width: 768px) 100vw, 64vw"
-            placeholder="blur"
-            blurDataURL={BLUR}
-            onLoad={() => setPlateLoaded(true)}
-            // The warm grade is baked into the JPEG rather than applied as a
-            // CSS filter: a filter on a 1080px-wide image is re-applied by the
-            // compositor on every paint, and this one never changes.
-            className="object-cover object-[58%_58%]"
-          />
-        </div>
+      {/* --- Moving air, behind the photograph --------------------------- */}
+      {tier !== "none" ? <HeroScene tier={tier} /> : null}
 
-        {/* The photograph's black ground is keyed out per-pixel in the WebGL
-            version. Here it is feathered with a mask instead, so the flat
-            fallback has no visible rectangle either. */}
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(120% 92% at 55% 60%, transparent 38%, rgba(18,11,7,0.5) 76%, #120b07 100%)",
-          }}
+      {/* --- The photograph ---------------------------------------------- */}
+      <div className={cn("absolute inset-y-0 right-0 w-full", PLATE_CLASS)}>
+        <Image
+          src="/images/hero-cup.webp"
+          alt=""
+          fill
+          priority
+          fetchPriority="high"
+          sizes="(max-width: 768px) 100vw, 64vw"
+          /* No blur placeholder. The plate is a cut-out with an alpha channel
+             and the placeholder is an opaque blurred rectangle, so for the
+             few hundred milliseconds before the image decodes you would see
+             precisely the hard-edged box this whole approach exists to
+             avoid. Against a near-black page, arriving without a placeholder
+             is invisible; arriving with one is not. */
+          className="object-cover object-[58%_58%]"
         />
       </div>
 
-      {/* --- The scene ---------------------------------------------------- */}
-      {tier !== "none" ? (
-        <div
-          className={cn(
-            "absolute inset-0 transition-opacity duration-[1500ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
-            sceneVisible ? "opacity-100" : "opacity-0"
-          )}
-        >
-          <HeroScene tier={tier} />
-        </div>
-      ) : null}
-
       {/* --- The lamp ------------------------------------------------------
           A warm pool over the cup and a faint sage counter-light low right,
-          so the warm side has something to be warm against. */}
-      {/* Plain alpha, not `mix-blend-screen`.
-          A blended layer sitting above an animated one cannot be composited
-          independently: the browser has to re-rasterise everything beneath it
-          on every frame of the drift, which on this hero meant repainting a
-          1080px photograph sixty times a second. Over a near-black ground the
-          two look all but identical. */}
+          so the warm side has something to be warm against.
+
+          Plain alpha, not `mix-blend-screen`. A blended layer above an
+          animated one cannot be composited on its own: the browser has to
+          re-rasterise everything beneath it on every frame. Over a near-black
+          ground the two look all but identical. */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
@@ -178,13 +140,6 @@ export function HeroStage() {
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-void via-void/65 to-transparent" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-void/80 to-transparent" />
-
-      <style>{`
-        @keyframes hero-drift {
-          from { transform: scale(1) translate3d(0, 0, 0); }
-          to   { transform: scale(1.07) translate3d(-1.4%, -1.8%, 0); }
-        }
-      `}</style>
     </div>
   );
 }
