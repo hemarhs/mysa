@@ -122,6 +122,15 @@
   }
 
   html {
+    /* Reserve the scrollbar's width permanently.
+     *
+     * The preloader, the mobile sheet, the lightbox and the reservation
+     * dialog all lock `body { overflow: hidden }`. Without a stable gutter
+     * that removes the scrollbar, and every fixed-width element on the page
+     * jumps sideways by 15px at the exact moment a modal opens — a layout
+     * shift that Core Web Vitals counts and that looks like a flinch. */
+    scrollbar-gutter: stable;
+
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

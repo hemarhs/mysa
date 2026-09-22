@@ -11,9 +11,10 @@ import { prefersReducedMotion } from "@/lib/motion";
 /**
  * Scroll storytelling: bean → roast → grind → pour.
  *
- * The section pins for four viewport-heights of scroll. The photograph
- * cross-fades and slowly pushes in while the caption block changes beneath
- * it, so the scroll wheel is driving a sequence rather than moving a page.
+ * The section pins for a couple of viewport-heights of scroll. The
+ * photograph cross-fades and slowly pushes in while the caption block changes
+ * beside it, so the scroll wheel is driving a sequence rather than moving a
+ * page.
  *
  * Three engineering decisions worth stating:
  *
@@ -72,7 +73,6 @@ const STEPS: Step[] = [
 export function ProcessSection() {
   const sectionRef = useRef<HTMLElement>(null);
   const [active, setActive] = useState(0);
-  const [pinned, setPinned] = useState(false);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -94,7 +94,6 @@ export function ProcessSection() {
       if (cancelled || !sectionRef.current) return;
 
       gsap.registerPlugin(ScrollTrigger);
-      setPinned(true);
 
       const trigger = ScrollTrigger.create({
         trigger: section,
@@ -121,7 +120,6 @@ export function ProcessSection() {
 
       cleanup = () => {
         trigger.kill(true);
-        setPinned(false);
       };
     })().catch((error) => {
       console.warn("[mysa] process section falling back to static:", error);
@@ -137,10 +135,18 @@ export function ProcessSection() {
     <section
       ref={sectionRef}
       aria-labelledby="process-heading"
-      className={cn(
-        "lustre relative isolate overflow-hidden bg-espresso",
-        pinned ? "flex h-[100svh] items-center" : "py-24 md:py-32"
-      )}
+      /* The layout is decided by a CSS breakpoint, not by React state.
+       *
+       * The first version switched between a stacked layout and a pinned,
+       * full-height one once GSAP had loaded. That changed the section's
+       * height about a second into the page's life and scored 0.3 CLS —
+       * a third of the Core Web Vitals budget spent on a layout decision
+       * that was knowable from the viewport width alone.
+       *
+       * Now the wide layout is full-height from the server render onward and
+       * GSAP only adds the pinning and the step changes. If GSAP never loads,
+       * the section is a perfectly good static one showing the first step. */
+      className="lustre relative isolate overflow-hidden bg-espresso py-24 md:py-32 motion-safe:lg:flex motion-safe:lg:h-[100svh] motion-safe:lg:items-center motion-safe:lg:py-0"
     >
       <div
         className="pointer-events-none absolute right-[-8%] top-1/2 h-[36rem] w-[36rem] -translate-y-1/2 rounded-full opacity-50 blur-[140px]"
@@ -166,22 +172,30 @@ export function ProcessSection() {
               one cup.
             </h2>
 
-            {/* Pinned: one caption at a time, cross-faded.
-                Static: all four, stacked and numbered. */}
-            <div className={cn("mt-12", pinned ? "relative h-64" : "space-y-12")}>
+            {/* Wide: one caption at a time, cross-faded in place.
+                Narrow: all four, stacked and numbered. */}
+            {/* Every one of these `lg:` rules is gated on `motion-safe`.
+                The cross-fade stack shows one step at a time and relies on
+                ScrollTrigger to advance `active`. Under reduced motion
+                ScrollTrigger never starts, so without the gate steps 02–04
+                sat at `opacity: 0` forever — three quarters of the section's
+                content, permanently unreadable, for exactly the visitors
+                least able to tolerate that. With the gate they fall back to
+                the stacked layout at every width. */}
+            <div className="mt-12 space-y-12 motion-safe:lg:relative motion-safe:lg:h-64 motion-safe:lg:space-y-0">
               {STEPS.map((step, index) => (
                 <article
                   key={step.key}
-                  aria-current={pinned ? active === index : undefined}
+                  aria-current={active === index ? "step" : undefined}
                   className={cn(
-                    pinned
-                      ? [
-                          "absolute inset-x-0 top-0 transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                          active === index
-                            ? "translate-y-0 opacity-100"
-                            : "pointer-events-none translate-y-4 opacity-0",
-                        ]
-                      : "border-l border-hairline pl-7"
+                    "border-l border-hairline pl-7",
+                    "motion-safe:lg:absolute motion-safe:lg:inset-x-0 motion-safe:lg:top-0",
+                    "motion-safe:lg:border-l-0 motion-safe:lg:pl-0",
+                    "motion-safe:lg:transition-all motion-safe:lg:duration-700",
+                    "motion-safe:lg:ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    active === index
+                      ? "motion-safe:lg:translate-y-0 motion-safe:lg:opacity-100"
+                      : "motion-safe:lg:pointer-events-none motion-safe:lg:translate-y-4 motion-safe:lg:opacity-0"
                   )}
                 >
                   <span className="font-sans text-[0.6875rem] font-semibold tracking-[0.24em] tnum text-gold">
@@ -200,30 +214,25 @@ export function ProcessSection() {
               ))}
             </div>
 
-            {/* Progress rail. Only meaningful while pinned. */}
-            {pinned ? (
-              <div className="mt-10 flex items-center gap-2.5" aria-hidden>
-                {STEPS.map((step, index) => (
-                  <span
-                    key={step.key}
-                    className={cn(
-                      "block h-px transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                      active === index ? "w-14 bg-gold" : "w-7 bg-hairline"
-                    )}
-                  />
-                ))}
-              </div>
-            ) : null}
+            {/* Progress rail. Only meaningful in the pinned, wide layout. */}
+            <div className="mt-10 hidden items-center gap-2.5 motion-safe:lg:flex" aria-hidden>
+              {STEPS.map((step, index) => (
+                <span
+                  key={step.key}
+                  className={cn(
+                    "block h-px transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                    active === index ? "w-14 bg-gold" : "w-7 bg-hairline"
+                  )}
+                />
+              ))}
+            </div>
           </div>
 
           {/* --- Plates ------------------------------------------------------ */}
           <div className="lg:col-span-7">
-            <div
-              className={cn(
-                "relative overflow-hidden bg-roast",
-                pinned ? "aspect-4/3 lg:aspect-16/11" : "hidden"
-              )}
-            >
+            {/* Wide: a single frame the four photographs cross-fade through.
+                Narrow: a plain grid of all four. */}
+            <div className="relative hidden aspect-16/11 overflow-hidden bg-roast motion-safe:lg:block">
               {STEPS.map((step, index) => {
                 const photo = PHOTOS[step.key];
                 return (
@@ -240,7 +249,7 @@ export function ProcessSection() {
                       src={photo.src}
                       alt={photo.alt}
                       fill
-                      sizes="(max-width: 1024px) 100vw, 55vw"
+                      sizes="55vw"
                       placeholder="blur"
                       blurDataURL={BLUR}
                       className="object-cover"
@@ -249,7 +258,6 @@ export function ProcessSection() {
                 );
               })}
 
-              {/* The shared warm grade, so this reads as the same shoot. */}
               <div
                 className="pointer-events-none absolute inset-0 mix-blend-soft-light"
                 style={{ backgroundColor: "rgba(201,161,91,0.12)" }}
@@ -261,35 +269,32 @@ export function ProcessSection() {
               />
             </div>
 
-            {/* Static fallback: the four plates as a grid. */}
-            {!pinned ? (
-              <div className="grid grid-cols-2 gap-4">
-                {STEPS.map((step) => {
-                  const photo = PHOTOS[step.key];
-                  return (
+            <div className="grid grid-cols-2 gap-4 motion-safe:lg:hidden">
+              {STEPS.map((step) => {
+                const photo = PHOTOS[step.key];
+                return (
+                  <div
+                    key={step.key}
+                    className="relative aspect-4/5 overflow-hidden bg-roast"
+                  >
+                    <Image
+                      src={photo.src}
+                      alt={photo.alt}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 28vw"
+                      placeholder="blur"
+                      blurDataURL={BLUR}
+                      className="object-cover"
+                    />
                     <div
-                      key={step.key}
-                      className="relative aspect-4/5 overflow-hidden bg-roast"
-                    >
-                      <Image
-                        src={photo.src}
-                        alt={photo.alt}
-                        fill
-                        sizes="(max-width: 768px) 50vw, 28vw"
-                        placeholder="blur"
-                        blurDataURL={BLUR}
-                        className="object-cover"
-                      />
-                      <div
-                        className="pointer-events-none absolute inset-0 mix-blend-soft-light"
-                        style={{ backgroundColor: "rgba(201,161,91,0.12)" }}
-                        aria-hidden
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
+                      className="pointer-events-none absolute inset-0 mix-blend-soft-light"
+                      style={{ backgroundColor: "rgba(201,161,91,0.12)" }}
+                      aria-hidden
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>

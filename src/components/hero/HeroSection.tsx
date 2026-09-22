@@ -28,8 +28,8 @@ export function HeroSection({ announcement }: { announcement?: string | null }) 
           <SplitText
             as="h1"
             lines={["Somewhere", "to _slow_ down."]}
-            delay={0.28}
-            stagger={0.08}
+            delay={0.14}
+            stagger={0.05}
             onMount
             className="display mt-9 text-[clamp(3rem,9.5vw,8rem)] text-cream"
             lineClassName="pb-[0.14em] -mb-[0.08em]"

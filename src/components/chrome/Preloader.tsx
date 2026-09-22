@@ -29,7 +29,13 @@ import { prefersReducedMotion } from "@/lib/motion";
  */
 
 const STORAGE_KEY = "mysa:intro-played";
-const TOTAL_MS = 2300;
+/* 1.65s door to door.
+ *
+ * The first cut ran 2.3s, and every millisecond of it sat in front of the
+ * Largest Contentful Paint: nothing behind an opaque curtain can be painted,
+ * so the intro was setting the floor for the page's LCP score. Ceremony is
+ * worth paying for; it is not worth paying a second of LCP for. */
+const TOTAL_MS = 1650;
 
 function alreadyPlayed(): boolean {
   try {
@@ -78,7 +84,7 @@ export function Preloader() {
     // covers it. That frame is what the LCP measurement sees.
     const raised = window.requestAnimationFrame(() => setPhase("drawing"));
 
-    schedule(() => setPhase("parting"), 1550);
+    schedule(() => setPhase("parting"), 1000);
     schedule(finish, TOTAL_MS);
 
     // The failsafe. If a timer is throttled — a backgrounded tab, a busy
@@ -119,14 +125,14 @@ export function Preloader() {
       <div
         className={cn(
           "absolute inset-x-0 top-0 h-1/2 bg-espresso will-change-transform",
-          "transition-transform duration-[900ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
+          "transition-transform duration-[650ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
           parting ? "-translate-y-full" : "translate-y-0"
         )}
       />
       <div
         className={cn(
           "absolute inset-x-0 bottom-0 h-1/2 bg-espresso will-change-transform",
-          "transition-transform duration-[900ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
+          "transition-transform duration-[650ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
           parting ? "translate-y-full" : "translate-y-0"
         )}
       />
@@ -135,7 +141,7 @@ export function Preloader() {
           deliberate rather than as two divs sliding apart. */}
       <div
         className={cn(
-          "absolute inset-x-0 top-1/2 h-px origin-center bg-gold transition-all duration-[900ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
+          "absolute inset-x-0 top-1/2 h-px origin-center bg-gold transition-all duration-[650ms] ease-[cubic-bezier(0.76,0,0.24,1)]",
           parting ? "scale-x-100 opacity-0" : "scale-x-0 opacity-70"
         )}
         aria-hidden
@@ -167,8 +173,8 @@ export function Preloader() {
               style={{
                 strokeDasharray: 1,
                 strokeDashoffset: 1,
-                animation: `draw-stroke 700ms cubic-bezier(0.16,1,0.3,1) ${
-                  120 + index * 130
+                animation: `draw-stroke 520ms cubic-bezier(0.16,1,0.3,1) ${
+                  60 + index * 95
                 }ms forwards`,
               }}
             />
@@ -186,7 +192,7 @@ export function Preloader() {
             style={{
               transform: "scaleX(0)",
               animation:
-                "progress-run 1400ms cubic-bezier(0.25,0.46,0.45,0.94) 100ms forwards",
+                "progress-run 900ms cubic-bezier(0.25,0.46,0.45,0.94) 60ms forwards",
             }}
           />
         </span>

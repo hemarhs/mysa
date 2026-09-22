@@ -1,6 +1,6 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { motion } from "framer-motion";
 import { Fragment } from "react";
 
 import { cn } from "@/lib/cn";
@@ -77,21 +77,23 @@ export function SplitText({
   onMount = false,
   emphasis = true,
 }: Props) {
-  const reduced = useReducedMotion();
   const structured = splitLines(lines, emphasis);
   const label = lines.join(" ").replace(/_/g, "");
 
-  const animation = reduced
-    ? {}
-    : {
-        initial: "hidden" as const,
-        ...(onMount
-          ? { animate: "visible" as const }
-          : {
-              whileInView: "visible" as const,
-              viewport: { once: true, margin: "0px 0px -14% 0px" },
-            }),
-      };
+  /* Reduced motion is handled in CSS, not here — see the note in Reveal.
+   * Branching on `useReducedMotion()` renders different attributes on the
+   * server and the client, which React reports as a hydration mismatch and
+   * refuses to patch. The `[data-motion]` rule in globals.css pins these
+   * words visible for anyone who has asked for less motion. */
+  const animation = {
+    initial: "hidden" as const,
+    ...(onMount
+      ? { animate: "visible" as const }
+      : {
+          whileInView: "visible" as const,
+          viewport: { once: true, margin: "0px 0px -14% 0px" },
+        }),
+  };
 
   return (
     <Tag className={className} aria-label={label}>

@@ -83,14 +83,26 @@ export function detectSceneTier(): SceneTier {
   // No WebGL at all — nothing to negotiate.
   if (!hasWebGL()) return "none";
 
-  const memory = typeof nav.deviceMemory === "number" ? nav.deviceMemory : 8;
-  const cores =
-    typeof nav.hardwareConcurrency === "number" ? nav.hardwareConcurrency : 8;
   const coarse = window.matchMedia("(pointer: coarse)").matches;
   const narrow = window.matchMedia("(max-width: 900px)").matches;
 
+  /* Phones and tablets get no WebGL at all.
+   *
+   * Two reasons, and the first is the honest one: the hero scene exists to
+   * respond to a pointer, and a touch device has no pointer to respond to —
+   * the parallax, the camera lean and the dust all have nothing to track, so
+   * the visitor pays for a feature they cannot use. The second is that
+   * three.js is roughly 180KB gzipped, which is a lot to spend on a phone for
+   * a decoration. They get the photograph, which is the same picture.
+   */
+  if (coarse || narrow) return "none";
+
+  const memory = typeof nav.deviceMemory === "number" ? nav.deviceMemory : 8;
+  const cores =
+    typeof nav.hardwareConcurrency === "number" ? nav.hardwareConcurrency : 8;
+
   if (memory < 4 || cores < 4) return "none";
-  if (coarse || narrow || memory < 8 || cores < 8) return "lite";
+  if (memory < 8 || cores < 8) return "lite";
 
   return "full";
 }

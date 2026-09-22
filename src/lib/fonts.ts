@@ -26,6 +26,19 @@ export const display = localFont({
   preload: true,
   fallback: ["Georgia", "Times New Roman", "ui-serif", "serif"],
   adjustFontFallback: "Times New Roman",
+  /* Only the three cuts the site actually sets.
+   *
+   * `next/font/local` emits a `<link rel="preload">` for every entry in this
+   * array, on every page. The first version listed six — 300/400/500/600 and
+   * two italics — which meant seven font preloads and roughly 160KB of
+   * requests on a 404 page that uses two of them. The browser reported every
+   * unused one as "preloaded but not used", which is Chrome politely saying
+   * the bandwidth was wasted.
+   *
+   * Display type on this site is set at 300 throughout (26 usages, all
+   * `font-light`); 400 is kept as the fallback for anything unweighted, and
+   * 300 italic carries the one emphasis style the brand has. 500 and 600 were
+   * never referenced and are gone. */
   src: [
     {
       path: "../fonts/cormorant-garamond-latin-300-normal.woff2",
@@ -40,21 +53,6 @@ export const display = localFont({
     {
       path: "../fonts/cormorant-garamond-latin-400-normal.woff2",
       weight: "400",
-      style: "normal",
-    },
-    {
-      path: "../fonts/cormorant-garamond-latin-400-italic.woff2",
-      weight: "400",
-      style: "italic",
-    },
-    {
-      path: "../fonts/cormorant-garamond-latin-500-normal.woff2",
-      weight: "500",
-      style: "normal",
-    },
-    {
-      path: "../fonts/cormorant-garamond-latin-600-normal.woff2",
-      weight: "600",
       style: "normal",
     },
   ],

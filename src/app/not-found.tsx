@@ -20,7 +20,7 @@ export default function NotFound() {
           <h1 className="display mt-6 text-[clamp(2.5rem,7vw,5.5rem)] text-cream">
             Nothing on
             <br />
-            this table.
+            <em className="display-em text-gold">this table.</em>
           </h1>
           <p className="mt-9 max-w-md text-[var(--step-1)] leading-[1.85] text-latte">
             The page you were after has moved or never existed. The menu, on the
