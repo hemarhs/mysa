@@ -19,7 +19,14 @@ export default function LoginPage() {
           aria-hidden
         />
         <div className="relative flex h-full flex-col justify-between p-14">
-          <Wordmark className="h-5 text-gold" />
+          {/* `self-start` is load-bearing.
+              This is a flex column, so its children stretch to the full width
+              by default. An <svg> stretched that way keeps its aspect ratio
+              and centres itself inside the box it was handed — so the mark
+              sat in the middle of the panel instead of in its corner, with
+              nothing in the markup to suggest why. The width on the Wordmark
+              is `auto`, which stretch overrides; only the alignment does. */}
+          <Wordmark className="h-5 self-start text-gold" />
           <div>
             <p className="font-display text-[2.75rem] font-light leading-[1.15] text-cream">
               Somewhere
