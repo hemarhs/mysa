@@ -1,0 +1,21 @@
+# --- dependencies & build output ---
+node_modules
+.next
+out
+build
+.DS_Store
+*.pem
+npm-debug.log*
+.env
+.env.local
+.env*.local
+.vercel
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# --- secrets: never commit these ---
+.env.*.local
+
+# --- local scratch, not part of the project ---
+*.tar.gz
+diag.mjs

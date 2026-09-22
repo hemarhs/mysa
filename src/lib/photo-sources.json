@@ -1,0 +1,19 @@
+{
+  "interiorWide": { "id": "1521302080334-4bebac2763a6", "alt": "The main room at Mysa, low lit, with a long communal table", "tone": "dark" },
+  "interiorSeats": { "id": "1554118811-1e0d58224f24", "alt": "Soft leather seating beneath a window at the front of the cafe", "tone": "warm" },
+  "interiorCorner": { "id": "1517248135467-4c7edcad34c4", "alt": "A quiet corner table set for two", "tone": "warm" },
+  "cortado": { "id": "1495474472287-4d71bcdd2085", "alt": "A cortado in a glass on a dark counter", "tone": "warm" },
+  "latteArt": { "id": "1509042239860-f550ce710b93", "alt": "Latte art poured into a wide ceramic cup, seen from above", "tone": "warm" },
+  "pourOver": { "id": "1461023058943-07fcbe16d735", "alt": "Hot water poured slowly over a filter cone", "tone": "dark" },
+  "espressoMachine": { "id": "1504753793650-d4a2b783c15e", "alt": "An espresso machine group head pulling a shot", "tone": "dark" },
+  "beans": { "id": "1541167760496-1628856ab772", "alt": "Freshly roasted coffee beans", "tone": "warm" },
+  "cupOnTable": { "id": "1511920170033-f8396924c348", "alt": "A cup of coffee resting on a worn wooden table", "tone": "warm" },
+  "cheesecake": { "id": "1551024506-0bccd828d307", "alt": "A slice of burnt Basque cheesecake on a small plate", "tone": "warm" },
+  "cakeSlice": { "id": "1488477181946-6428a0291777", "alt": "A slice of cake with a dark glaze", "tone": "warm" },
+  "pastryCase": { "id": "1559496417-e7f25cb247f3", "alt": "Morning pastries arranged in the case", "tone": "warm" },
+  "croissant": { "id": "1486427944299-d1955d23e34d", "alt": "A laminated croissant, torn open", "tone": "warm" },
+  "tart": { "id": "1470324161839-ce2bb6fa6bc3", "alt": "A salted honey tart, cut", "tone": "warm" },
+  "toast": { "id": "1445116572660-236099ec97a0", "alt": "Toasted sourdough with whipped labneh and herbs", "tone": "warm" },
+  "barista": { "id": "1510591509098-f4fdc6d0ff04", "alt": "A barista tamping a basket at the bar", "tone": "dark" },
+  "roasting": { "id": "1497515114629-f71d768fd07c", "alt": "Green coffee going into the drum roaster", "tone": "dark" }
+}

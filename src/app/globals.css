@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+/* ==========================================================================
+   Mysa design tokens
+   Palette rationale: a brown-shifted near-black base ("espresso") reads as
+   lamplit rather than technological; the accent is a desaturated brass gold
+   that stays legible on both the dark base and the linen contrast sections.
+   Terracotta is reserved for semantic states only (sold out, destructive).
+   ========================================================================== */
+@theme {
+  /* Surfaces */
+  --color-espresso: #14100d;
+  --color-roast: #1e1814;
+  --color-roast-soft: #272019;
+  --color-linen: #f4efe7;
+  --color-linen-deep: #e9e1d5;
+
+  /* Accent */
+  --color-gold: #c8a165;
+  --color-gold-light: #ddbb84;
+  --color-gold-dim: #8f724a;
+
+  /* Semantic */
+  --color-terracotta: #b2674a;
+  --color-terracotta-light: #d08a6c;
+
+  /* Type on dark */
+  --color-cream: #eae3d9;
+  --color-cream-muted: #9a8f84;
+
+  /* Type on linen */
+  --color-ink: #1a1512;
+  --color-ink-muted: #6b6259;
+
+  /* Hairlines */
+  --color-hairline: rgb(200 161 101 / 0.18);
+  --color-hairline-ink: rgb(26 21 18 / 0.12);
+
+  /* Fonts (bound to next/font variables in layout.tsx) */
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-espresso);
+    color: var(--color-cream);
+    font-family: var(--font-sans);
+    font-feature-settings: "kern", "liga", "calt";
+  }
+
+  ::selection {
+    background-color: var(--color-gold);
+    color: var(--color-espresso);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-serif);
+    font-weight: 400;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility display {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  letter-spacing: -0.03em;
+  line-height: 0.98;
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+}
+
+@utility rule {
+  height: 1px;
+  width: 3rem;
+  background-color: color-mix(in oklab, var(--color-gold) 50%, transparent);
+}
+
+@utility container-wide {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 88rem;
+  padding-inline: 1.5rem;
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 4rem;
+  }
+}
+
+@utility container-narrow {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 48rem;
+  padding-inline: 1.5rem;
+  @media (width >= 48rem) {
+    padding-inline: 2.5rem;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Subtle film grain over the hero, keeps large dark areas from banding */
+@utility grain {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [class*="animate-[fade-up"] {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+@keyframes sweep {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(420%);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Page-wide film grain. Large flat areas of a near-black brown band badly on
+   8-bit displays; a trace of noise hides it and reads as printed stock.
+   -------------------------------------------------------------------------- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    opacity: 0.02;
+  }
+}
+
+/* A gold hairline that draws itself in on hover — used on editorial cards. */
+@utility hairline-draw {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      var(--color-gold) 0%,
+      color-mix(in oklab, var(--color-gold) 40%, transparent) 100%
+    );
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &:hover::after {
+    transform: scaleX(1);
+  }
+}
