@@ -1,5 +1,6 @@
 import { HeroSection } from "@/components/hero/HeroSection";
 import { StorySection } from "@/components/home/StorySection";
+import { ProcessSection } from "@/components/home/ProcessSection";
 import { FeaturedMenu } from "@/components/home/FeaturedMenu";
 import { GalleryTeaser } from "@/components/home/GalleryTeaser";
 import { LocationSection } from "@/components/home/LocationSection";
@@ -11,6 +12,11 @@ import { getFeaturedItems, getHours, getSettings } from "@/lib/db/queries";
 /** Rebuilt every 5 minutes, and immediately when admin saves a change. */
 export const revalidate = 300;
 
+/**
+ * The home page reads as a printed sequence: a dark hero, a cream spread, a
+ * pinned process story, the board, the room, the address, the invitation.
+ * Dark and light bands alternate so no two adjacent sections share a ground.
+ */
 export default async function HomePage() {
   const [featured, settings, hours] = await Promise.all([
     getFeaturedItems(3),
@@ -21,6 +27,7 @@ export default async function HomePage() {
   return (
     <>
       <StructuredData settings={settings} hours={hours} />
+
       <HeroSection announcement={settings.announcement} />
 
       <Marquee
@@ -35,6 +42,7 @@ export default async function HomePage() {
       />
 
       <StorySection />
+      <ProcessSection />
       <FeaturedMenu items={featured} currency={settings.currency} />
       <GalleryTeaser />
 
@@ -45,7 +53,8 @@ export default async function HomePage() {
           "Named farms",
           "No queue, no hurry",
         ]}
-        duration={56}
+        duration={60}
+        reverse
       />
 
       <LocationSection settings={settings} hours={hours} />

@@ -1,4 +1,6 @@
 import { Reveal } from "@/components/ui/Reveal";
+import { Eyebrow } from "@/components/ui/Ornament";
+import { SplitText } from "@/components/ui/SplitText";
 import { cn } from "@/lib/cn";
 import type { MenuCategoryWithItems } from "@/lib/db/queries";
 import { MenuRow } from "./MenuRow";
@@ -6,47 +8,58 @@ import { MenuRow } from "./MenuRow";
 type Props = {
   category: MenuCategoryWithItems;
   currency: string;
-  tone: "dark" | "linen";
+  tone: "dark" | "light";
 };
 
+/**
+ * One category of the board.
+ *
+ * Alternating dark and cream grounds break the menu into readable chapters —
+ * forty items on one continuous background is a spreadsheet. The category
+ * title sticks beside its items on wide screens so you always know which
+ * part of the board you are reading.
+ */
 export function MenuSection({ category, currency, tone }: Props) {
   const dark = tone === "dark";
 
   return (
     <section
       id={category.slug}
-      className={cn("scroll-mt-32 py-20 md:py-28", dark ? "bg-espresso" : "bg-linen")}
+      className={cn(
+        "scroll-mt-32",
+        dark ? "lustre bg-espresso" : "luxe text-espresso"
+      )}
     >
-      <div className="container-wide">
+      <div className="container-wide py-20 md:py-28">
         <div className="grid gap-12 lg:grid-cols-12 lg:gap-16">
           <Reveal className="lg:col-span-4">
-            <div className="lg:sticky lg:top-40">
-              <span className={cn("eyebrow flex items-center gap-3", dark ? "text-gold" : "text-gold-dim")}>
-                <span
-                  className={cn("h-px w-12", dark ? "bg-gold/50" : "bg-gold-dim/50")}
-                  aria-hidden
-                />
+            <div className="lg:sticky lg:top-44">
+              <Eyebrow tone={dark ? "dark" : "light"}>
                 {String(category.items.length).padStart(2, "0")} items
-              </span>
+              </Eyebrow>
 
-              <h2
+              <SplitText
+                as="h2"
+                lines={[category.name]}
                 className={cn(
-                  "display mt-6 text-[clamp(2.25rem,4.4vw,3.25rem)]",
-                  dark ? "text-cream" : "text-ink"
+                  "display mt-6 text-[clamp(2rem,4.2vw,3.25rem)]",
+                  dark ? "text-cream" : "text-espresso"
                 )}
-              >
-                {category.name}
-              </h2>
+                lineClassName="pb-[0.14em] -mb-[0.1em]"
+                stagger={0.05}
+              />
 
               {category.description ? (
-                <p
-                  className={cn(
-                    "mt-6 max-w-sm text-[0.9375rem] leading-[1.85]",
-                    dark ? "text-cream-muted" : "text-ink-muted"
-                  )}
-                >
-                  {category.description}
-                </p>
+                <Reveal delay={0.12}>
+                  <p
+                    className={cn(
+                      "mt-7 max-w-sm text-[0.9375rem] leading-[1.9]",
+                      dark ? "text-latte" : "text-mocha"
+                    )}
+                  >
+                    {category.description}
+                  </p>
+                </Reveal>
               ) : null}
             </div>
           </Reveal>
@@ -54,12 +67,23 @@ export function MenuSection({ category, currency, tone }: Props) {
           <div className="lg:col-span-8">
             {category.items.length ? (
               <ul>
-                {category.items.map((item) => (
-                  <MenuRow key={item.id} item={item} currency={currency} tone={tone} />
+                {category.items.map((item, index) => (
+                  <MenuRow
+                    key={item.id}
+                    item={item}
+                    currency={currency}
+                    tone={tone}
+                    index={index}
+                  />
                 ))}
               </ul>
             ) : (
-              <p className={cn("py-8 text-[0.9375rem]", dark ? "text-cream-muted" : "text-ink-muted")}>
+              <p
+                className={cn(
+                  "py-8 text-[0.9375rem]",
+                  dark ? "text-latte" : "text-mocha"
+                )}
+              >
                 Nothing on this section of the board today.
               </p>
             )}

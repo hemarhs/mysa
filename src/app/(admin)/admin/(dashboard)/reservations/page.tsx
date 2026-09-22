@@ -14,11 +14,11 @@ const FILTERS = [
   { value: "cancelled", label: "Cancelled" },
 ] as const;
 
-const STATUS_TONE: Record<ReservationStatus, "neutral" | "gold" | "terracotta"> = {
+const STATUS_TONE: Record<ReservationStatus, "neutral" | "gold" | "alert"> = {
   pending: "gold",
   confirmed: "neutral",
-  declined: "terracotta",
-  cancelled: "terracotta",
+  declined: "alert",
+  cancelled: "alert",
 };
 
 function prettyTime(value: string) {
@@ -58,8 +58,8 @@ export default async function AdminReservationsPage({
               className={cn(
                 "border px-4 py-2 font-sans text-[0.75rem] font-medium uppercase tracking-[0.14em] transition-colors duration-300",
                 active
-                  ? "border-ink bg-ink text-linen"
-                  : "border-ink/20 text-ink-muted hover:border-ink/45 hover:text-ink"
+                  ? "border-espresso bg-espresso text-cream"
+                  : "border-espresso/20 text-mocha hover:border-espresso/45 hover:text-espresso"
               )}
             >
               {filter.label}
@@ -78,23 +78,23 @@ export default async function AdminReservationsPage({
                 className={cn(
                   "border p-6",
                   booking.status === "pending"
-                    ? "border-gold-dim/40 bg-gold/5"
-                    : "border-ink/12 bg-linen",
+                    ? "border-gold-ink/40 bg-gold/5"
+                    : "border-espresso/12 bg-cream",
                   past && "opacity-60"
                 )}
               >
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                  <h2 className="font-serif text-[1.375rem] font-light text-ink">
+                  <h2 className="font-display text-[1.375rem] font-light text-espresso">
                     {new Date(`${booking.date}T00:00:00`).toLocaleDateString("en-GB", {
                       weekday: "short",
                       day: "numeric",
                       month: "long",
                     })}
-                    <span className="mx-2 text-ink-muted">·</span>
+                    <span className="mx-2 text-mocha">·</span>
                     {prettyTime(booking.time)}
                   </h2>
 
-                  <span className="font-sans text-[0.9375rem] text-ink">
+                  <span className="font-sans text-[0.9375rem] text-espresso">
                     {booking.partySize} {booking.partySize === 1 ? "person" : "people"}
                   </span>
 
@@ -103,40 +103,40 @@ export default async function AdminReservationsPage({
 
                   <time
                     dateTime={booking.createdAt.toISOString()}
-                    className="ml-auto font-sans text-[0.8125rem] tabular-nums text-ink-muted"
+                    className="ml-auto font-sans text-[0.8125rem] tabular-nums text-mocha"
                   >
                     requested {booking.createdAt.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
                   </time>
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[0.9375rem]">
-                  <span className="text-ink">{booking.name}</span>
+                  <span className="text-espresso">{booking.name}</span>
                   <a
                     href={`mailto:${booking.email}?subject=${encodeURIComponent(
                       `Your table at Mysa — ${booking.date}`
                     )}`}
-                    className="text-ink-muted underline decoration-ink/20 underline-offset-4 transition-colors hover:text-ink"
+                    className="text-mocha underline decoration-ink/20 underline-offset-4 transition-colors hover:text-espresso"
                   >
                     {booking.email}
                   </a>
-                  {booking.phone ? <span className="text-ink-muted">{booking.phone}</span> : null}
+                  {booking.phone ? <span className="text-mocha">{booking.phone}</span> : null}
                   {booking.occasion ? <Pill>{booking.occasion}</Pill> : null}
                 </div>
 
                 {booking.notes ? (
-                  <p className="mt-4 whitespace-pre-line border-l-2 border-ink/15 pl-4 text-[0.9375rem] leading-[1.7] text-ink-muted">
+                  <p className="mt-4 whitespace-pre-line border-l-2 border-espresso/15 pl-4 text-[0.9375rem] leading-[1.7] text-mocha">
                     {booking.notes}
                   </p>
                 ) : null}
 
-                <div className="mt-6 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
+                <div className="mt-6 flex flex-wrap gap-2 border-t border-espresso/10 pt-4">
                   {booking.status !== "confirmed" ? (
                     <form action={setReservationStatus}>
                       <input type="hidden" name="id" value={booking.id} />
                       <input type="hidden" name="status" value="confirmed" />
                       <button
                         type="submit"
-                        className="border border-gold-dim/50 bg-gold/10 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-gold-dim transition-colors hover:bg-gold/20"
+                        className="border border-gold-ink/50 bg-gold/10 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-gold-ink transition-colors hover:bg-gold/20"
                       >
                         Confirm
                       </button>
@@ -149,7 +149,7 @@ export default async function AdminReservationsPage({
                       <input type="hidden" name="status" value="declined" />
                       <button
                         type="submit"
-                        className="border border-ink/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink/45 hover:text-ink"
+                        className="border border-espresso/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:border-espresso/45 hover:text-espresso"
                       >
                         Decline
                       </button>
@@ -162,7 +162,7 @@ export default async function AdminReservationsPage({
                       <input type="hidden" name="status" value="pending" />
                       <button
                         type="submit"
-                        className="border border-ink/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink/45 hover:text-ink"
+                        className="border border-espresso/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:border-espresso/45 hover:text-espresso"
                       >
                         Back to pending
                       </button>
@@ -173,7 +173,7 @@ export default async function AdminReservationsPage({
                     <input type="hidden" name="id" value={booking.id} />
                     <button
                       type="submit"
-                      className="px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-terracotta"
+                      className="px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:text-alert"
                     >
                       Delete
                     </button>

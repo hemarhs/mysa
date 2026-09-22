@@ -38,8 +38,8 @@ export default async function AdminMessagesPage({
               className={cn(
                 "border px-4 py-2 font-sans text-[0.75rem] font-medium uppercase tracking-[0.14em] transition-colors duration-300",
                 active
-                  ? "border-ink bg-ink text-linen"
-                  : "border-ink/20 text-ink-muted hover:border-ink/45 hover:text-ink"
+                  ? "border-espresso bg-espresso text-cream"
+                  : "border-espresso/20 text-mocha hover:border-espresso/45 hover:text-espresso"
               )}
             >
               {filter.label}
@@ -55,16 +55,16 @@ export default async function AdminMessagesPage({
               key={message.id}
               className={cn(
                 "border p-6",
-                message.status === "new" ? "border-gold-dim/40 bg-gold/5" : "border-ink/12 bg-linen"
+                message.status === "new" ? "border-gold-ink/40 bg-gold/5" : "border-espresso/12 bg-cream"
               )}
             >
               <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-                <h2 className="font-serif text-[1.25rem] font-light text-ink">{message.name}</h2>
+                <h2 className="font-display text-[1.25rem] font-light text-espresso">{message.name}</h2>
                 <a
                   href={`mailto:${message.email}?subject=${encodeURIComponent(
                     `Re: ${message.subject || "your note to Mysa"}`
                   )}`}
-                  className="font-sans text-[0.875rem] text-ink-muted underline decoration-ink/20 underline-offset-4 transition-colors hover:text-ink"
+                  className="font-sans text-[0.875rem] text-mocha underline decoration-ink/20 underline-offset-4 transition-colors hover:text-espresso"
                 >
                   {message.email}
                 </a>
@@ -72,7 +72,7 @@ export default async function AdminMessagesPage({
                 {message.status === "archived" ? <Pill>Archived</Pill> : null}
                 <time
                   dateTime={message.createdAt.toISOString()}
-                  className="ml-auto font-sans text-[0.8125rem] tabular-nums text-ink-muted"
+                  className="ml-auto font-sans text-[0.8125rem] tabular-nums text-mocha"
                 >
                   {message.createdAt.toLocaleString("en-GB", {
                     day: "numeric",
@@ -85,23 +85,23 @@ export default async function AdminMessagesPage({
               </div>
 
               {message.subject ? (
-                <p className="mt-3 font-sans text-[0.9375rem] font-medium text-ink">
+                <p className="mt-3 font-sans text-[0.9375rem] font-medium text-espresso">
                   {message.subject}
                 </p>
               ) : null}
 
-              <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-[1.75] text-ink-muted">
+              <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-[1.75] text-mocha">
                 {message.body}
               </p>
 
-              <div className="mt-6 flex flex-wrap gap-2 border-t border-ink/10 pt-4">
+              <div className="mt-6 flex flex-wrap gap-2 border-t border-espresso/10 pt-4">
                 {message.status !== "read" ? (
                   <form action={setMessageStatus}>
                     <input type="hidden" name="id" value={message.id} />
                     <input type="hidden" name="status" value="read" />
                     <button
                       type="submit"
-                      className="border border-ink/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink/45 hover:text-ink"
+                      className="border border-espresso/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:border-espresso/45 hover:text-espresso"
                     >
                       Mark read
                     </button>
@@ -114,7 +114,7 @@ export default async function AdminMessagesPage({
                     <input type="hidden" name="status" value="archived" />
                     <button
                       type="submit"
-                      className="border border-ink/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink/45 hover:text-ink"
+                      className="border border-espresso/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:border-espresso/45 hover:text-espresso"
                     >
                       Archive
                     </button>
@@ -125,7 +125,7 @@ export default async function AdminMessagesPage({
                     <input type="hidden" name="status" value="read" />
                     <button
                       type="submit"
-                      className="border border-ink/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:border-ink/45 hover:text-ink"
+                      className="border border-espresso/20 px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:border-espresso/45 hover:text-espresso"
                     >
                       Restore
                     </button>
@@ -136,7 +136,7 @@ export default async function AdminMessagesPage({
                   <input type="hidden" name="id" value={message.id} />
                   <button
                     type="submit"
-                    className="px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-terracotta"
+                    className="px-3 py-1.5 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:text-alert"
                   >
                     Delete
                   </button>

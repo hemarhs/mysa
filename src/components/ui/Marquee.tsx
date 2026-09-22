@@ -58,8 +58,8 @@ export function Marquee({
       className={cn(
         "relative overflow-hidden border-y py-6",
         dark
-          ? "border-hairline bg-roast/45"
-          : "border-hairline-ink bg-cream-dim/60",
+          ? "border-hairline bg-gradient-to-b from-roast/55 via-espresso to-void/70"
+          : "border-hairline-ink bg-gradient-to-b from-white/60 via-cream to-cream-dim/70",
         className
       )}
       aria-hidden

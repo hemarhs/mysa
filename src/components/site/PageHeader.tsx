@@ -35,7 +35,7 @@ export function PageHeader({
   return (
     <header
       className={cn(
-        "grain relative isolate overflow-hidden bg-espresso pb-16 pt-36 md:pb-24 md:pt-48",
+        "lustre relative isolate overflow-hidden bg-espresso pb-16 pt-36 md:pb-24 md:pt-48",
         className
       )}
     >
@@ -89,6 +89,10 @@ export function PageHeader({
                 fallback={plate.fallback}
                 sizes="(max-width: 1024px) 100vw, 38vw"
                 className="aspect-4/5 lg:aspect-3/4"
+                // Above the fold on every interior page — this is the LCP
+                // candidate, so it is fetched at high priority, not lazily.
+                priority
+                reveal={false}
                 revealDelay={0.35}
                 kenBurns
                 framed

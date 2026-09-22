@@ -52,14 +52,14 @@ function ToggleButton({
   value: boolean;
   onLabel: string;
   offLabel: string;
-  tone?: "gold" | "terracotta" | "neutral";
+  tone?: "gold" | "alert" | "neutral";
 }) {
   const tones = {
-    gold: value ? "border-gold-dim bg-gold/15 text-gold-dim" : "border-ink/15 text-ink-muted",
-    terracotta: value
-      ? "border-terracotta bg-terracotta/10 text-terracotta"
-      : "border-ink/15 text-ink-muted",
-    neutral: value ? "border-ink/40 text-ink" : "border-ink/15 text-ink-muted",
+    gold: value ? "border-gold-ink bg-gold/15 text-gold-ink" : "border-espresso/15 text-mocha",
+    alert: value
+      ? "border-alert bg-alert/10 text-alert"
+      : "border-espresso/15 text-mocha",
+    neutral: value ? "border-espresso/40 text-espresso" : "border-espresso/15 text-mocha",
   };
 
   return (
@@ -71,7 +71,7 @@ function ToggleButton({
         type="submit"
         aria-pressed={value}
         className={cn(
-          "border px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] transition-colors duration-300 hover:border-ink/45",
+          "border px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] transition-colors duration-300 hover:border-espresso/45",
           tones[tone]
         )}
       >
@@ -102,7 +102,7 @@ function ItemForm({
       {item ? <input type="hidden" name="id" value={item.id} /> : null}
 
       {state.status === "error" ? (
-        <p role="alert" className="border-l-2 border-terracotta bg-terracotta/8 py-3 pl-4 text-[0.875rem] text-terracotta">
+        <p role="alert" className="border-l-2 border-alert bg-alert/8 py-3 pl-4 text-[0.875rem] text-alert">
           {state.message}
         </p>
       ) : null}
@@ -158,7 +158,7 @@ function ItemForm({
             defaultValue={item?.imageUrl ?? ""}
             placeholder="https://…"
           />
-          <p className="mt-2 text-[0.8125rem] text-ink-muted">
+          <p className="mt-2 text-[0.8125rem] text-mocha">
             Optional. Shown on the home page and as a hover preview on the menu.
           </p>
         </div>
@@ -171,7 +171,7 @@ function ItemForm({
             defaultValue={item?.tags.join(", ") ?? ""}
             placeholder="vegan, contains nuts"
           />
-          <p className="mt-2 text-[0.8125rem] text-ink-muted">Comma separated.</p>
+          <p className="mt-2 text-[0.8125rem] text-mocha">Comma separated.</p>
         </div>
 
         <div>
@@ -187,14 +187,14 @@ function ItemForm({
         </div>
       </div>
 
-      <fieldset className="flex flex-wrap gap-x-8 gap-y-3 border-t border-ink/12 pt-5">
+      <fieldset className="flex flex-wrap gap-x-8 gap-y-3 border-t border-espresso/12 pt-5">
         <legend className="sr-only">Status</legend>
         {[
           { name: "isFeatured", label: "House pick", checked: item?.isFeatured ?? false },
           { name: "isSoldOut", label: "Sold out", checked: item?.isSoldOut ?? false },
           { name: "isActive", label: "Visible on the site", checked: item?.isActive ?? true },
         ].map((field) => (
-          <label key={field.name} className="flex items-center gap-2.5 font-sans text-[0.9375rem] text-ink">
+          <label key={field.name} className="flex items-center gap-2.5 font-sans text-[0.9375rem] text-espresso">
             <input
               type="checkbox"
               name={field.name}
@@ -256,7 +256,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
             className="overflow-hidden"
           >
             <Card className="bg-white/50">
-              <h2 className="font-serif text-[1.375rem] font-light text-ink">
+              <h2 className="font-display text-[1.375rem] font-light text-espresso">
                 {editing ? `Edit “${editing.name}”` : "New menu item"}
               </h2>
               <div className="mt-7">
@@ -274,15 +274,15 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
 
       {grouped.map(({ category, items }) => (
         <section key={category.id}>
-          <div className="flex items-end justify-between border-b border-ink/12 pb-3">
-            <h2 className="font-serif text-[1.375rem] font-light text-ink">{category.name}</h2>
-            <span className="font-sans text-[0.75rem] uppercase tracking-[0.14em] text-ink-muted">
+          <div className="flex items-end justify-between border-b border-espresso/12 pb-3">
+            <h2 className="font-display text-[1.375rem] font-light text-espresso">{category.name}</h2>
+            <span className="font-sans text-[0.75rem] uppercase tracking-[0.14em] text-mocha">
               {items.length} {items.length === 1 ? "item" : "items"}
             </span>
           </div>
 
           {items.length ? (
-            <ul className="divide-y divide-ink/10">
+            <ul className="divide-y divide-espresso/10">
               {items.map((item) => (
                 <li key={item.id} className="flex flex-wrap items-start gap-x-5 gap-y-3 py-5">
                   <div className="min-w-0 flex-1">
@@ -290,7 +290,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                       <span
                         className={cn(
                           "font-sans text-[1rem]",
-                          item.isActive ? "text-ink" : "text-ink-muted line-through"
+                          item.isActive ? "text-espresso" : "text-mocha line-through"
                         )}
                       >
                         {item.name}
@@ -298,13 +298,13 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                       {!item.isActive ? <Pill>Hidden</Pill> : null}
                     </div>
                     {item.description ? (
-                      <p className="mt-1.5 line-clamp-1 max-w-xl text-[0.875rem] text-ink-muted">
+                      <p className="mt-1.5 line-clamp-1 max-w-xl text-[0.875rem] text-mocha">
                         {item.description}
                       </p>
                     ) : null}
                   </div>
 
-                  <span className="shrink-0 font-sans text-[0.9375rem] tabular-nums text-ink">
+                  <span className="shrink-0 font-sans text-[0.9375rem] tabular-nums text-espresso">
                     {formatPrice(item.priceCents)}
                   </span>
 
@@ -322,7 +322,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                       value={item.isSoldOut}
                       onLabel="Sold out"
                       offLabel="Available"
-                      tone="terracotta"
+                      tone="alert"
                     />
                     <ToggleButton
                       id={item.id}
@@ -336,7 +336,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                     <button
                       type="button"
                       onClick={() => { setEditing(item); setAdding(false); }}
-                      className="px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-ink-muted underline decoration-ink/25 underline-offset-4 transition-colors hover:text-ink"
+                      className="px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-mocha underline decoration-ink/25 underline-offset-4 transition-colors hover:text-espresso"
                     >
                       Edit
                     </button>
@@ -346,14 +346,14 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                         <input type="hidden" name="id" value={item.id} />
                         <button
                           type="submit"
-                          className="border border-terracotta bg-terracotta/10 px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-terracotta"
+                          className="border border-alert bg-alert/10 px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-alert"
                         >
                           Confirm
                         </button>
                         <button
                           type="button"
                           onClick={() => setConfirming(null)}
-                          className="font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted"
+                          className="font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha"
                         >
                           No
                         </button>
@@ -362,7 +362,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
                       <button
                         type="button"
                         onClick={() => setConfirming(item.id)}
-                        className="px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-terracotta"
+                        className="px-2.5 py-1 font-sans text-[0.625rem] font-medium uppercase tracking-[0.14em] text-mocha transition-colors hover:text-alert"
                       >
                         Delete
                       </button>
@@ -372,7 +372,7 @@ export function MenuManager({ rows, categories }: { rows: Row[]; categories: Cat
               ))}
             </ul>
           ) : (
-            <p className="py-6 text-[0.9375rem] text-ink-muted">Nothing in this category yet.</p>
+            <p className="py-6 text-[0.9375rem] text-mocha">Nothing in this category yet.</p>
           )}
         </section>
       ))}

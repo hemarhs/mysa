@@ -82,7 +82,7 @@ export function Header() {
       className={cn(
         "fixed inset-x-0 top-0 z-[100] transition-[transform,background-color,border-color,backdrop-filter] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
         scrolled || open
-          ? "glass-espresso border-b border-hairline"
+          ? "border-b border-hairline bg-void/88 backdrop-blur-xl backdrop-saturate-150"
           : "border-b border-transparent bg-transparent",
         hidden && !open ? "-translate-y-full" : "translate-y-0"
       )}

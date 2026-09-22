@@ -144,15 +144,26 @@ export function Figure({
             fill
             sizes={sizes}
             priority={priority}
-            // Never lazy: the wrapper is briefly clipped, and a lazy loader
-            // can read that as off-screen and refuse to fetch.
-            loading="eager"
+            // Lazy everywhere except the plates that are above the fold.
+            //
+            // The first cut of this component forced `loading="eager"` on
+            // every photograph, on the theory that the clipped wrapper could
+            // be mistaken for off-screen. It cannot: clip-path does not move
+            // an element, and the lazy loader works from layout position. The
+            // cost of that assumption was the gallery fetching every full-size
+            // photograph on load, which is exactly the kind of thing that
+            // quietly takes twenty points off a mobile Lighthouse score.
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
             placeholder="blur"
             blurDataURL={BLUR}
             onError={() => setFailed(true)}
             onLoad={() => setLoaded(true)}
             className={cn(
               "object-cover transition-opacity duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+              // A hair of contrast and warmth, applied uniformly, is what
+              // makes a set of stock photographs look commissioned.
+              "[filter:saturate(1.04)_contrast(1.06)_brightness(1.01)]",
               loaded ? "opacity-100" : "opacity-0",
               imageClassName
             )}
@@ -167,12 +178,23 @@ export function Figure({
         style={{ backgroundColor: `rgba(201, 161, 91, ${grade})` }}
         aria-hidden
       />
+      {/* A short, weak foot-shadow only — enough to seat the plate against
+          the page. The first version multiplied a tall espresso gradient over
+          the bottom half of every photograph, which is what made the whole
+          set look muddy rather than rich. */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-40 mix-blend-multiply"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4 opacity-45"
         style={{
           background:
-            "linear-gradient(to top, rgba(28,18,13,0.55) 0%, rgba(28,18,13,0) 55%)",
+            "linear-gradient(to top, rgba(18,11,7,0.5) 0%, rgba(18,11,7,0) 100%)",
         }}
+        aria-hidden
+      />
+
+      {/* An inner hairline, so a photograph has an edge rather than bleeding
+          into the ground. */}
+      <span
+        className="pointer-events-none absolute inset-0 ring-1 ring-inset ring-cream/[0.07]"
         aria-hidden
       />
 

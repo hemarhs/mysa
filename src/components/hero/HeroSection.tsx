@@ -16,7 +16,7 @@ import { ScrollCue } from "./ScrollCue";
  */
 export function HeroSection({ announcement }: { announcement?: string | null }) {
   return (
-    <section className="grain relative isolate flex min-h-[100svh] items-center overflow-hidden">
+    <section className="lustre relative isolate flex min-h-[100svh] items-center overflow-hidden">
       <HeroStage />
 
       <div className="container-wide relative z-10 pb-28 pt-36 md:pt-32">

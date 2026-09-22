@@ -28,9 +28,19 @@ export function Sidebar({ user, unread, pendingReservations, logout }: Props) {
   const [open, setOpen] = useState(false);
 
   const nav = (
-    <nav className="flex flex-col gap-1" aria-label="Admin sections">
+    <nav className="flex flex-col" aria-label="Admin sections">
       {LINKS.map((link) => {
-        const active = link.exact ? pathname === link.href : pathname.startsWith(link.href);
+        const active = link.exact
+          ? pathname === link.href
+          : pathname.startsWith(link.href);
+
+        const badge =
+          link.href === "/admin/messages"
+            ? unread
+            : link.href === "/admin/reservations"
+              ? pendingReservations
+              : 0;
+
         return (
           <Link
             key={link.href}
@@ -38,32 +48,33 @@ export function Sidebar({ user, unread, pendingReservations, logout }: Props) {
             onClick={() => setOpen(false)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex items-center justify-between px-4 py-3 font-sans text-[0.9375rem] transition-colors duration-300",
+              "group/row relative flex items-center justify-between py-3 pl-5 pr-4",
+              "font-sans text-[0.9375rem] transition-colors duration-300",
               active
-                ? "bg-ink text-linen"
-                : "text-ink-muted hover:bg-ink/5 hover:text-ink"
+                ? "bg-espresso text-cream"
+                : "text-mocha hover:bg-espresso/[0.05] hover:text-espresso"
             )}
           >
+            {/* Gold marker on the active row — quieter than a filled block
+                and it survives the row being dark. */}
+            <span
+              className={cn(
+                "absolute inset-y-0 left-0 w-0.5 transition-colors duration-300",
+                active ? "bg-gold" : "bg-transparent"
+              )}
+              aria-hidden
+            />
             {link.label}
-            {(() => {
-              const badge =
-                link.href === "/admin/messages"
-                  ? unread
-                  : link.href === "/admin/reservations"
-                    ? pendingReservations
-                    : 0;
-              if (!badge) return null;
-              return (
-                <span
-                  className={cn(
-                    "ml-3 min-w-6 rounded-full px-2 py-0.5 text-center font-sans text-[0.6875rem] tabular-nums",
-                    active ? "bg-gold text-espresso" : "bg-gold/20 text-gold-dim"
-                  )}
-                >
-                  {badge}
-                </span>
-              );
-            })()}
+            {badge ? (
+              <span
+                className={cn(
+                  "ml-3 min-w-6 px-2 py-0.5 text-center font-sans text-[0.625rem] font-semibold tnum",
+                  active ? "bg-gold text-espresso" : "bg-gold-ink/15 text-gold-ink"
+                )}
+              >
+                {badge}
+              </span>
+            ) : null}
           </Link>
         );
       })}
@@ -73,30 +84,33 @@ export function Sidebar({ user, unread, pendingReservations, logout }: Props) {
   return (
     <>
       {/* Mobile bar */}
-      <div className="flex items-center justify-between border-b border-ink/12 bg-linen px-5 py-4 lg:hidden">
-        <Link href="/admin">
-          <Wordmark className="text-ink" />
+      <div className="flex items-center justify-between border-b border-hairline-ink bg-cream px-5 py-4 lg:hidden">
+        <Link href="/admin" className="flex items-center gap-3 text-espresso">
+          <Wordmark className="h-3.5" />
+          <span className="font-sans text-[0.5625rem] font-semibold uppercase tracking-[0.24em] text-mocha">
+            Admin
+          </span>
         </Link>
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
-          className="font-sans text-[0.75rem] uppercase tracking-[0.16em] text-ink-muted"
+          className="font-sans text-[0.625rem] font-semibold uppercase tracking-[0.2em] text-mocha transition-colors hover:text-espresso"
         >
           {open ? "Close" : "Menu"}
         </button>
       </div>
 
       {open ? (
-        <div className="border-b border-ink/12 bg-linen p-4 lg:hidden">{nav}</div>
+        <div className="border-b border-hairline-ink bg-cream py-2 lg:hidden">{nav}</div>
       ) : null}
 
       {/* Desktop rail */}
-      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-ink/12 bg-linen-deep/40 p-6 lg:flex">
+      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r border-hairline-ink bg-cream-dim/50 py-6 lg:flex">
         <div>
-          <Link href="/admin" className="block px-4">
-            <Wordmark className="text-ink" />
-            <span className="mt-1.5 block font-sans text-[0.6875rem] uppercase tracking-[0.18em] text-ink-muted">
+          <Link href="/admin" className="block px-5 text-espresso">
+            <Wordmark className="h-4" />
+            <span className="mt-2 block font-sans text-[0.5625rem] font-semibold uppercase tracking-[0.24em] text-mocha">
               Admin
             </span>
           </Link>
@@ -104,24 +118,26 @@ export function Sidebar({ user, unread, pendingReservations, logout }: Props) {
           <div className="mt-10">{nav}</div>
         </div>
 
-        <div className="border-t border-ink/12 pt-5">
-          <p className="px-4 font-sans text-[0.8125rem] text-ink">{user.name || "Signed in"}</p>
-          <p className="mt-0.5 truncate px-4 font-sans text-[0.75rem] text-ink-muted">
+        <div className="mt-10 border-t border-hairline-ink px-5 pt-5">
+          <p className="font-sans text-[0.8125rem] text-espresso">
+            {user.name || "Signed in"}
+          </p>
+          <p className="mt-0.5 truncate font-sans text-[0.75rem] text-mocha">
             {user.email}
           </p>
 
-          <div className="mt-4 flex flex-col gap-1">
+          <div className="mt-5 flex flex-col items-start gap-2">
             <Link
               href="/"
               target="_blank"
-              className="px-4 py-2 font-sans text-[0.8125rem] text-ink-muted transition-colors hover:text-ink"
+              className="font-sans text-[0.8125rem] text-mocha transition-colors duration-300 hover:text-gold-ink"
             >
               View site ↗
             </Link>
             <form action={logout}>
               <button
                 type="submit"
-                className="w-full px-4 py-2 text-left font-sans text-[0.8125rem] text-ink-muted transition-colors hover:text-terracotta"
+                className="font-sans text-[0.8125rem] text-mocha transition-colors duration-300 hover:text-alert"
               >
                 Sign out
               </button>

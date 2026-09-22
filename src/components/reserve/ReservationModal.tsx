@@ -6,13 +6,15 @@ import { useFormStatus } from "react-dom";
 
 import { submitReservation, type ReservationState } from "@/app/reserve-actions";
 import { cn } from "@/lib/cn";
+import { Eyebrow, Flourish } from "@/components/ui/Ornament";
+import { EASE_EXPO } from "@/lib/motion";
 import { SITE } from "@/lib/site";
 
 const initial: ReservationState = { status: "idle" };
 
 const field =
   "w-full border-b bg-transparent px-0 py-3.5 font-sans text-[0.9375rem] text-cream " +
-  "placeholder:text-cream-muted/45 transition-colors duration-400 focus:outline-none focus:border-gold " +
+  "placeholder:text-latte/45 transition-colors duration-400 focus:outline-none focus:border-gold " +
   "[color-scheme:dark]";
 
 /** Half-hour slots across the widest opening window we run. */
@@ -38,8 +40,12 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="group relative w-full shrink-0 overflow-hidden whitespace-nowrap bg-gold px-9 py-4 font-sans text-[0.8125rem] font-medium uppercase tracking-[0.16em] text-espresso transition-colors duration-500 hover:bg-gold-light disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+      className="group/btn relative isolate w-full shrink-0 overflow-hidden whitespace-nowrap bg-gold px-9 py-4 font-sans text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-espresso transition-colors duration-500 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
     >
+      <span
+        className="absolute inset-0 -z-10 origin-bottom scale-y-0 bg-gold-light transition-transform duration-[650ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/btn:scale-y-100"
+        aria-hidden
+      />
       <span className="relative flex items-center justify-center gap-3">
         {pending ? "Sending…" : "Request this table"}
         {pending ? (
@@ -53,7 +59,7 @@ function SubmitButton() {
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} className="mt-2 font-sans text-[0.8125rem] text-terracotta-light">
+    <p id={id} className="mt-2 font-sans text-[0.8125rem] text-alert-light">
       {message}
     </p>
   );
@@ -109,7 +115,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
     return () => {
       window.removeEventListener("keydown", onKey);
       window.clearTimeout(timer);
-      document.body.style.overflow = "";
+      document.body.style.removeProperty("overflow");
       restoreFocus.current?.focus();
     };
   }, [open, onClose]);
@@ -123,8 +129,8 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-          className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-espresso/94 p-4 backdrop-blur-md sm:items-center sm:p-8"
+          transition={{ duration: 0.35, ease: EASE_EXPO }}
+          className="fixed inset-0 z-[140] flex items-start justify-center overflow-y-auto bg-espresso/95 p-4 backdrop-blur-md sm:items-center sm:p-8"
           onClick={onClose}
           role="dialog"
           aria-modal="true"
@@ -135,22 +141,24 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
             initial={{ opacity: 0, y: 28, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 14, scale: 0.99 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.5, ease: EASE_EXPO }}
             onClick={(event) => event.stopPropagation()}
-            className="relative my-auto w-full max-w-2xl border border-gold/25 bg-roast-soft shadow-[0_40px_120px_-20px_rgba(0,0,0,0.95)]"
+            className="panel gilt relative my-auto w-full max-w-2xl"
           >
-            {/* Gold hairline across the top edge */}
+            {/* Gold hairline across the top edge, and an inset frame — the
+                two marks that say "this is Mysa" at a glance. */}
             <span
               className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-gold/70 to-transparent"
               aria-hidden
             />
+            <span className="pointer-events-none absolute inset-4 border border-gold/10" aria-hidden />
 
             <button
               ref={closeRef}
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center text-cream-muted transition-colors duration-300 hover:text-gold"
+              className="absolute right-5 top-5 z-10 flex h-10 w-10 items-center justify-center text-latte transition-colors duration-300 hover:text-gold"
             >
               <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden>
                 <path d="M5 5l14 14M19 5L5 19" />
@@ -160,7 +168,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
             <div className="px-7 py-10 sm:px-12 sm:py-12">
               {succeeded ? (
                 <div className="text-center">
-                  <span className="mx-auto block h-px w-12 bg-gold/60" aria-hidden />
+                  <Flourish className="mx-auto max-w-[12rem]" />
                   <h2 id="reserve-title" className="display mt-8 text-[clamp(2rem,4vw,2.75rem)] text-cream">
                     Table requested.
                   </h2>
@@ -168,17 +176,17 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                   {state.booking ? (
                     <dl className="mx-auto mt-9 grid max-w-sm grid-cols-2 gap-x-8 gap-y-4 border-y border-hairline py-7 text-left">
                       <div>
-                        <dt className="eyebrow text-cream-muted">Name</dt>
+                        <dt className="eyebrow text-latte">Name</dt>
                         <dd className="mt-1.5 text-[0.9375rem] text-cream">{state.booking.name}</dd>
                       </div>
                       <div>
-                        <dt className="eyebrow text-cream-muted">Party</dt>
+                        <dt className="eyebrow text-latte">Party</dt>
                         <dd className="mt-1.5 text-[0.9375rem] text-cream">
                           {state.booking.partySize} {state.booking.partySize === 1 ? "person" : "people"}
                         </dd>
                       </div>
                       <div>
-                        <dt className="eyebrow text-cream-muted">Date</dt>
+                        <dt className="eyebrow text-latte">Date</dt>
                         <dd className="mt-1.5 text-[0.9375rem] text-cream">
                           {new Date(`${state.booking.date}T00:00:00`).toLocaleDateString("en-GB", {
                             weekday: "short",
@@ -188,36 +196,36 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                         </dd>
                       </div>
                       <div>
-                        <dt className="eyebrow text-cream-muted">Time</dt>
+                        <dt className="eyebrow text-latte">Time</dt>
                         <dd className="mt-1.5 text-[0.9375rem] text-cream">{pretty(state.booking.time)}</dd>
                       </div>
                     </dl>
                   ) : null}
 
-                  <p className="mx-auto mt-8 max-w-sm text-[0.9375rem] leading-[1.8] text-cream-muted">
+                  <p className="mx-auto mt-8 max-w-sm text-[0.9375rem] leading-[1.8] text-latte">
                     {state.message}
                   </p>
 
                   <button
                     type="button"
                     onClick={onClose}
-                    className="mt-10 border border-gold/40 px-7 py-3.5 font-sans text-[0.8125rem] font-medium uppercase tracking-[0.16em] text-gold transition-all duration-500 hover:border-gold hover:bg-gold hover:text-espresso"
+                    className="mt-10 border border-gold/40 px-8 py-4 font-sans text-[0.75rem] font-semibold uppercase tracking-[0.2em] text-gold transition-all duration-500 hover:border-gold hover:bg-gold hover:text-espresso"
                   >
                     Close
                   </button>
                 </div>
               ) : (
                 <>
-                  <p className="eyebrow flex items-center gap-3 text-gold">
-                    <span className="h-px w-10 bg-gold/50" aria-hidden />
-                    Reservations
-                  </p>
+                  <Eyebrow>Reservations</Eyebrow>
 
-                  <h2 id="reserve-title" className="display mt-6 text-[clamp(2rem,4vw,2.75rem)] text-cream">
-                    Hold a table.
+                  <h2
+                    id="reserve-title"
+                    className="display mt-7 text-[clamp(2rem,4.2vw,3rem)] text-cream"
+                  >
+                    Hold a <em className="display-em text-gold">table.</em>
                   </h2>
 
-                  <p className="mt-5 max-w-md text-[0.9375rem] leading-[1.8] text-cream-muted">
+                  <p className="mt-5 max-w-md text-[0.9375rem] leading-[1.8] text-latte">
                     Tables of four or fewer are walk-in — just come in. Use this for
                     larger groups, or when you would rather be certain.
                   </p>
@@ -230,7 +238,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0 }}
                           role="alert"
-                          className="border-l-2 border-terracotta bg-terracotta/10 py-3.5 pl-5 pr-4 font-sans text-[0.875rem] leading-relaxed text-terracotta-light"
+                          className="border-l-2 border-alert bg-alert/10 py-3.5 pl-5 pr-4 font-sans text-[0.875rem] leading-relaxed text-alert-light"
                         >
                           {state.message}
                         </motion.p>
@@ -239,7 +247,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
 
                     <div className="grid gap-7 sm:grid-cols-2">
                       <div>
-                        <label htmlFor="r-name" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-name" className="eyebrow block text-latte/80">
                           Name
                         </label>
                         <input
@@ -249,14 +257,14 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           required
                           aria-invalid={Boolean(state.fieldErrors?.name)}
                           aria-describedby={state.fieldErrors?.name ? "r-name-error" : undefined}
-                          className={cn(field, state.fieldErrors?.name ? "border-terracotta" : "border-hairline")}
+                          className={cn(field, state.fieldErrors?.name ? "border-alert" : "border-hairline")}
                           placeholder="Ines Halvorsen"
                         />
                         <FieldError id="r-name-error" message={state.fieldErrors?.name} />
                       </div>
 
                       <div>
-                        <label htmlFor="r-email" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-email" className="eyebrow block text-latte/80">
                           Email
                         </label>
                         <input
@@ -267,14 +275,14 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           required
                           aria-invalid={Boolean(state.fieldErrors?.email)}
                           aria-describedby={state.fieldErrors?.email ? "r-email-error" : undefined}
-                          className={cn(field, state.fieldErrors?.email ? "border-terracotta" : "border-hairline")}
+                          className={cn(field, state.fieldErrors?.email ? "border-alert" : "border-hairline")}
                           placeholder="you@example.com"
                         />
                         <FieldError id="r-email-error" message={state.fieldErrors?.email} />
                       </div>
 
                       <div>
-                        <label htmlFor="r-phone" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-phone" className="eyebrow block text-latte/80">
                           Phone <span className="normal-case tracking-normal opacity-60">(optional)</span>
                         </label>
                         <input
@@ -288,7 +296,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                       </div>
 
                       <div>
-                        <label htmlFor="r-party" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-party" className="eyebrow block text-latte/80">
                           Party size
                         </label>
                         <select
@@ -296,7 +304,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           name="partySize"
                           defaultValue="2"
                           required
-                          className={cn(field, state.fieldErrors?.partySize ? "border-terracotta" : "border-hairline")}
+                          className={cn(field, state.fieldErrors?.partySize ? "border-alert" : "border-hairline")}
                         >
                           {Array.from({ length: 20 }, (_, i) => i + 1).map((n) => (
                             <option key={n} value={n} className="bg-roast text-cream">
@@ -308,7 +316,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                       </div>
 
                       <div>
-                        <label htmlFor="r-date" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-date" className="eyebrow block text-latte/80">
                           Date
                         </label>
                         <input
@@ -321,13 +329,13 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           defaultValue={today}
                           aria-invalid={Boolean(state.fieldErrors?.date)}
                           aria-describedby={state.fieldErrors?.date ? "r-date-error" : undefined}
-                          className={cn(field, state.fieldErrors?.date ? "border-terracotta" : "border-hairline")}
+                          className={cn(field, state.fieldErrors?.date ? "border-alert" : "border-hairline")}
                         />
                         <FieldError id="r-date-error" message={state.fieldErrors?.date} />
                       </div>
 
                       <div>
-                        <label htmlFor="r-time" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-time" className="eyebrow block text-latte/80">
                           Time
                         </label>
                         <select
@@ -335,7 +343,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                           name="time"
                           defaultValue="18:00"
                           required
-                          className={cn(field, state.fieldErrors?.time ? "border-terracotta" : "border-hairline")}
+                          className={cn(field, state.fieldErrors?.time ? "border-alert" : "border-hairline")}
                         >
                           {slots().map((slot) => (
                             <option key={slot} value={slot} className="bg-roast text-cream">
@@ -347,7 +355,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label htmlFor="r-occasion" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-occasion" className="eyebrow block text-latte/80">
                           Occasion <span className="normal-case tracking-normal opacity-60">(optional)</span>
                         </label>
                         <select id="r-occasion" name="occasion" defaultValue="" className={cn(field, "border-hairline")}>
@@ -361,7 +369,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label htmlFor="r-notes" className="eyebrow block text-cream-muted">
+                        <label htmlFor="r-notes" className="eyebrow block text-latte/80">
                           Anything we should know
                         </label>
                         <textarea
@@ -382,7 +390,7 @@ export function ReservationModal({ open, onClose }: { open: boolean; onClose: ()
 
                     <div className="flex flex-col gap-5 border-t border-hairline pt-7 sm:flex-row sm:items-center">
                       <SubmitButton />
-                      <p className="text-[0.8125rem] leading-relaxed text-cream-muted/85">
+                      <p className="text-[0.8125rem] leading-relaxed text-latte/85">
                         Nothing is charged. We confirm by email — usually within a few
                         hours, or write to{" "}
                         <a href={`mailto:${SITE.email}`} className="text-gold transition-colors hover:text-gold-light">

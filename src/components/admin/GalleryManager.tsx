@@ -84,20 +84,20 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
   return (
     <div className="space-y-10">
       <Card>
-        <h2 className="font-serif text-[1.375rem] font-light text-ink">Add a photograph</h2>
-        <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-ink-muted">
+        <h2 className="font-display text-[1.375rem] font-light text-espresso">Add a photograph</h2>
+        <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-mocha">
           Upload a file, or paste a URL if the image is already hosted somewhere.
           JPEG, PNG, WebP or AVIF, up to 8&nbsp;MB.
         </p>
 
         <form key={formKey} action={formAction} className="mt-7 space-y-6">
           {state.status === "error" ? (
-            <p role="alert" className="border-l-2 border-terracotta bg-terracotta/8 py-3 pl-4 text-[0.875rem] text-terracotta">
+            <p role="alert" className="border-l-2 border-alert bg-alert/8 py-3 pl-4 text-[0.875rem] text-alert">
               {state.message}
             </p>
           ) : null}
           {uploadError ? (
-            <p role="alert" className="border-l-2 border-terracotta bg-terracotta/8 py-3 pl-4 text-[0.875rem] text-terracotta">
+            <p role="alert" className="border-l-2 border-alert bg-alert/8 py-3 pl-4 text-[0.875rem] text-alert">
               {uploadError}
             </p>
           ) : null}
@@ -111,10 +111,10 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
                 accept="image/jpeg,image/png,image/webp,image/avif"
                 onChange={handleFile}
                 disabled={uploading}
-                className="mt-2 w-full cursor-pointer border border-ink/18 bg-white/60 px-3.5 py-2.5 font-sans text-[0.875rem] text-ink file:mr-4 file:border-0 file:bg-ink file:px-3 file:py-1.5 file:font-sans file:text-[0.75rem] file:uppercase file:tracking-[0.12em] file:text-linen"
+                className="mt-2 w-full cursor-pointer border border-espresso/18 bg-white/60 px-3.5 py-2.5 font-sans text-[0.875rem] text-espresso file:mr-4 file:border-0 file:bg-espresso file:px-3 file:py-1.5 file:font-sans file:text-[0.75rem] file:uppercase file:tracking-[0.12em] file:text-cream"
               />
               {uploading ? (
-                <p className="mt-2 text-[0.8125rem] text-ink-muted">Uploading…</p>
+                <p className="mt-2 text-[0.8125rem] text-mocha">Uploading…</p>
               ) : null}
             </div>
 
@@ -134,7 +134,7 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
             <div>
               <Label htmlFor="alt">Alt text</Label>
               <Input id="alt" name="alt" required maxLength={300} placeholder="The bar, late afternoon" />
-              <p className="mt-2 text-[0.8125rem] text-ink-muted">
+              <p className="mt-2 text-[0.8125rem] text-mocha">
                 Describes the image for screen readers. Required.
               </p>
             </div>
@@ -168,8 +168,8 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
       {images.length ? (
         <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {images.map((image) => (
-            <li key={image.id} className="border border-ink/12 bg-linen">
-              <div className="relative aspect-4/3 overflow-hidden bg-linen-deep">
+            <li key={image.id} className="border border-espresso/12 bg-cream">
+              <div className="relative aspect-4/3 overflow-hidden bg-cream-dim">
                 <Image
                   src={image.url}
                   alt={image.alt}
@@ -185,12 +185,12 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
               <div className="space-y-3 p-4">
                 <div className="flex items-center justify-between gap-3">
                   <Pill>{CATEGORY_LABEL[image.category] ?? image.category}</Pill>
-                  <span className="font-sans text-[0.75rem] tabular-nums text-ink-muted">
+                  <span className="font-sans text-[0.75rem] tabular-nums text-mocha">
                     #{image.position}
                   </span>
                 </div>
 
-                <p className="line-clamp-2 text-[0.875rem] leading-relaxed text-ink">
+                <p className="line-clamp-2 text-[0.875rem] leading-relaxed text-espresso">
                   {image.caption || image.alt}
                 </p>
 
@@ -206,11 +206,11 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
                       type="number"
                       min={0}
                       defaultValue={image.position}
-                      className="w-16 border border-ink/18 bg-white/60 px-2 py-1 font-sans text-[0.8125rem] text-ink"
+                      className="w-16 border border-espresso/18 bg-white/60 px-2 py-1 font-sans text-[0.8125rem] text-espresso"
                     />
                     <button
                       type="submit"
-                      className="border border-ink/20 px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-ink"
+                      className="border border-espresso/20 px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:text-espresso"
                     >
                       Move
                     </button>
@@ -220,7 +220,7 @@ export function GalleryManager({ images }: { images: GalleryImage[] }) {
                     <input type="hidden" name="id" value={image.id} />
                     <button
                       type="submit"
-                      className="px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-terracotta"
+                      className="px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:text-alert"
                     >
                       Remove
                     </button>

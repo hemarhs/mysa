@@ -91,11 +91,15 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
         </div>
       ) : null}
 
+      {/* Opacity only. See the note on @keyframes page-in in globals.css:
+          animating `transform` here turns this wrapper into a containing
+          block for every `position: fixed` descendant, which silently breaks
+          GSAP pinned sections further down the page. */}
       <div
         key={contentKey}
         data-motion
         className={cn(
-          "motion-safe:animate-[fade-up_700ms_cubic-bezier(0.16,1,0.3,1)_120ms_both]"
+          "motion-safe:animate-[page-in_520ms_cubic-bezier(0.16,1,0.3,1)_90ms_both]"
         )}
       >
         {children}

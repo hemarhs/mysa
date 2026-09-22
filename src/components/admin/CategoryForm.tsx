@@ -24,18 +24,18 @@ export function CategoryForm({ categories }: { categories: Category[] }) {
 
   return (
     <Card>
-      <h2 className="font-serif text-[1.375rem] font-light text-ink">Categories</h2>
-      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-ink-muted">
+      <h2 className="font-display text-[1.375rem] font-light text-espresso">Categories</h2>
+      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-mocha">
         Sections on the menu page, in order. Deleting a category also deletes
         every item inside it.
       </p>
 
-      <ul className="mt-6 divide-y divide-ink/10 border-y border-ink/10">
+      <ul className="mt-6 divide-y divide-espresso/10 border-y border-espresso/10">
         {categories.map((category) => (
           <li key={category.id} className="flex items-center justify-between gap-4 py-3">
             <div className="min-w-0">
-              <span className="font-sans text-[0.9375rem] text-ink">{category.name}</span>
-              <span className="ml-3 font-mono text-[0.75rem] text-ink-muted">/{category.slug}</span>
+              <span className="font-sans text-[0.9375rem] text-espresso">{category.name}</span>
+              <span className="ml-3 font-mono text-[0.75rem] text-mocha">/{category.slug}</span>
             </div>
 
             {confirming === category.id ? (
@@ -43,14 +43,14 @@ export function CategoryForm({ categories }: { categories: Category[] }) {
                 <input type="hidden" name="id" value={category.id} />
                 <button
                   type="submit"
-                  className="border border-terracotta bg-terracotta/10 px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-terracotta"
+                  className="border border-alert bg-alert/10 px-2.5 py-1 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-alert"
                 >
                   Delete it
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirming(null)}
-                  className="font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted"
+                  className="font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha"
                 >
                   Cancel
                 </button>
@@ -59,7 +59,7 @@ export function CategoryForm({ categories }: { categories: Category[] }) {
               <button
                 type="button"
                 onClick={() => setConfirming(category.id)}
-                className="shrink-0 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-ink-muted transition-colors hover:text-terracotta"
+                className="shrink-0 font-sans text-[0.625rem] uppercase tracking-[0.14em] text-mocha transition-colors hover:text-alert"
               >
                 Delete
               </button>
@@ -70,7 +70,7 @@ export function CategoryForm({ categories }: { categories: Category[] }) {
 
       <form action={formAction} className="mt-7 space-y-5">
         {state.status === "error" ? (
-          <p role="alert" className="border-l-2 border-terracotta bg-terracotta/8 py-3 pl-4 text-[0.875rem] text-terracotta">
+          <p role="alert" className="border-l-2 border-alert bg-alert/8 py-3 pl-4 text-[0.875rem] text-alert">
             {state.message}
           </p>
         ) : null}

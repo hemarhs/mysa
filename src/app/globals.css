@@ -24,6 +24,11 @@
 @theme {
   /* --- Ground ---------------------------------------------------------- */
   --color-espresso: #1c120d;
+  /* One step below espresso, for the deepest wells: the top of the page,
+     the inside of a card, the ground under a lit object. Having something
+     *darker* than the base is what stops a dark site reading as flat mud —
+     without it every surface sits at exactly one value and nothing recedes. */
+  --color-void: #120b07;
   --color-roast: #3b2418;
   --color-roast-soft: #462b1e; /* roast → mocha, 78/22 */
   --color-mocha: #6b4531;
@@ -85,9 +90,10 @@
 
   /* --- Elevation --------------------------------------------------------
      Warm shadows only. A neutral black shadow over espresso reads as dirt. */
-  --shadow-warm-sm: 0 2px 14px -6px rgb(10 6 4 / 0.55);
-  --shadow-warm: 0 18px 50px -24px rgb(10 6 4 / 0.8);
-  --shadow-warm-lg: 0 40px 110px -40px rgb(10 6 4 / 0.9);
+  --shadow-warm-sm: 0 1px 2px rgb(10 6 4 / 0.4), 0 6px 18px -8px rgb(10 6 4 / 0.6);
+  --shadow-warm: 0 2px 4px rgb(10 6 4 / 0.35), 0 22px 55px -22px rgb(10 6 4 / 0.85);
+  --shadow-warm-lg: 0 4px 8px rgb(10 6 4 / 0.4), 0 48px 120px -36px
+    rgb(10 6 4 / 0.92);
   --shadow-gold: 0 0 0 1px rgb(201 161 91 / 0.28), 0 24px 70px -34px
     rgb(201 161 91 / 0.35);
 }
@@ -140,7 +146,16 @@
   }
 
   body {
+    /* Not a flat fill: the page itself is lit from the top, which gives the
+       long dark stretches somewhere to fall away to. */
     background-color: var(--color-espresso);
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--color-espresso) 92%, var(--color-roast)) 0%,
+      var(--color-espresso) 40%,
+      var(--color-void) 100%
+    );
+    background-attachment: fixed;
     color: var(--color-cream);
     font-family: var(--font-sans);
     font-size: var(--step-0);
@@ -374,6 +389,85 @@
   -webkit-backdrop-filter: blur(22px) saturate(112%);
 }
 
+/* ==========================================================================
+   Panels
+   --------------------------------------------------------------------------
+   The difference between "dark website" and "expensive dark website" is
+   almost entirely whether surfaces have a top edge. A real object catches
+   light where it faces up; a div painted one flat colour never does. Every
+   raised surface here gets three things: a gradient from roast down to the
+   void, a one-pixel warm highlight along its top edge, and a warm shadow
+   underneath. That is the whole trick, and it costs no JavaScript.
+   ========================================================================== */
+
+@utility panel {
+  position: relative;
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--color-roast) 82%, var(--color-espresso)) 0%,
+    var(--color-espresso) 58%,
+    var(--color-void) 100%
+  );
+  box-shadow: var(--shadow-warm);
+
+  /* The lit top edge. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    pointer-events: none;
+    background-image: linear-gradient(
+      to right,
+      transparent 0%,
+      color-mix(in oklab, var(--color-gold) 60%, transparent) 22%,
+      color-mix(in oklab, var(--color-latte) 45%, transparent) 50%,
+      color-mix(in oklab, var(--color-gold) 60%, transparent) 78%,
+      transparent 100%
+    );
+  }
+}
+
+/** The same idea on the cream ground: a lifted card, not a tinted box. */
+@utility panel-light {
+  position: relative;
+  background-image: linear-gradient(
+    to bottom,
+    rgb(255 253 249 / 0.9) 0%,
+    var(--color-cream) 55%,
+    color-mix(in oklab, var(--color-cream) 90%, var(--color-latte)) 100%
+  );
+  box-shadow: var(--shadow-warm-sm);
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    pointer-events: none;
+    background-image: linear-gradient(
+      to right,
+      transparent 0%,
+      color-mix(in oklab, var(--color-gold) 40%, transparent) 50%,
+      transparent 100%
+    );
+  }
+}
+
+/**
+ * The house frame: a gold hairline with a soft inner glow, for the plates
+ * and panels that carry the brand. Sharp enough to read as metal leaf, not
+ * as a border-radius.
+ */
+@utility gilt {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-gold) 35%, transparent),
+    inset 0 1px 0 0 color-mix(in oklab, var(--color-gold-light) 45%, transparent),
+    var(--shadow-warm);
+}
+
 /** A gold hairline that draws itself in from the left on hover. */
 @utility hairline-draw {
   position: relative;
@@ -401,63 +495,95 @@
 }
 
 /* ==========================================================================
-   Texture
+   Surface
    --------------------------------------------------------------------------
-   Two layers, both pure CSS so there is nothing to download and nothing to
-   404. The grain hides 8-bit banding across the large flat espresso fields;
-   the paper layer adds a faint laid-texture to the cream sections so they
-   read as stock rather than as #fff with the brightness turned down.
+   No film grain. An earlier pass used a noise overlay on every surface, and
+   on the cream sections it did exactly the wrong thing: noise reads as print
+   stock at 300dpi and as *dirt* on a backlit screen. It flattened the cream
+   into beige and put a haze over the photography.
+
+   What replaces it is depth rather than texture — a lit surface instead of a
+   textured one. Each band gets a soft, very wide light source and a gentle
+   fall-off at its edges, so a flat colour becomes a lit volume. That is what
+   actually reads as expensive; noise just reads as busy.
    ========================================================================== */
 
-@utility grain {
+/** Dark bands: lamplight from above, falling off into the corners. */
+@utility lustre {
   position: relative;
+  /* The section becomes its own stacking context so the negative-z sheen
+     below sits above the section's background but beneath its content. An
+     absolutely-positioned pseudo-element at z-index 0 would paint over the
+     type — positioned elements always beat in-flow siblings. */
+  isolation: isolate;
 
-  &::after {
+  &::before {
     content: "";
     position: absolute;
     inset: 0;
-    z-index: 1;
+    z-index: -1;
     pointer-events: none;
-    opacity: 0.05;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-}
-
-@utility paper {
-  position: relative;
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    opacity: 0.35;
-    mix-blend-mode: multiply;
     background-image:
-      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.16'/%3E%3C/svg%3E"),
-      repeating-linear-gradient(
-        90deg,
-        rgb(107 69 49 / 0.035) 0px,
-        rgb(107 69 49 / 0.035) 1px,
-        transparent 1px,
-        transparent 3px
+      radial-gradient(
+        130% 70% at 50% -10%,
+        rgb(201 161 91 / 0.07) 0%,
+        rgb(107 69 49 / 0.035) 38%,
+        transparent 72%
+      ),
+      linear-gradient(
+        to bottom,
+        rgb(59 36 24 / 0.32) 0%,
+        transparent 22%,
+        transparent 78%,
+        rgb(10 6 4 / 0.32) 100%
       );
   }
 }
 
-/* Page-wide film grain, above everything, below nothing. */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9998;
-  pointer-events: none;
-  opacity: 0.032;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+/**
+ * Light bands: a warm, luminous cream that lifts toward the centre.
+ *
+ * The gradient is between Cream and Latte only — adjacent tones — so the
+ * section still resolves to the palette while stopping the large flat area
+ * from going grey in the middle of a wide screen.
+ */
+@utility luxe {
+  position: relative;
+  background-image:
+    radial-gradient(
+      120% 80% at 50% 0%,
+      rgb(255 252 246 / 0.75) 0%,
+      transparent 60%
+    ),
+    linear-gradient(
+      to bottom,
+      var(--color-cream) 0%,
+      var(--color-cream) 62%,
+      color-mix(in oklab, var(--color-cream) 88%, var(--color-latte)) 100%
+    );
+
+  /* A hairline of warmth where a cream band meets a dark one. */
+  &::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 0;
+    height: 1px;
+    background-image: linear-gradient(
+      to right,
+      transparent 0%,
+      color-mix(in oklab, var(--color-gold) 55%, transparent) 50%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
 }
 
-/* A faint vignette keeps attention in the middle of the page on wide screens. */
+/**
+ * A very faint vignette, still. Not texture — framing. It keeps attention in
+ * the middle of a 1920px screen and it is far below the threshold where it
+ * would be visible as an effect.
+ */
 body::before {
   content: "";
   position: fixed;
@@ -465,16 +591,10 @@ body::before {
   z-index: 9997;
   pointer-events: none;
   background-image: radial-gradient(
-    120% 90% at 50% 45%,
-    transparent 52%,
-    rgb(10 6 4 / 0.28) 100%
+    125% 95% at 50% 45%,
+    transparent 60%,
+    rgb(10 6 4 / 0.16) 100%
   );
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body::after {
-    opacity: 0.022;
-  }
 }
 
 /* ==========================================================================
@@ -515,6 +635,29 @@ html[data-cursor="on"] [contenteditable="true"] {
 }
 
 @keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/**
+ * Route-enter fade. Opacity only — deliberately.
+ *
+ * An element with a `transform` animation becomes a containing block for its
+ * `position: fixed` descendants, and it keeps that status for as long as the
+ * animation is applied, which with `fill-mode: both` is forever. The page
+ * wrapper used to run `fade-up` (which animates translateY), and the result
+ * was that every GSAP pinned section inside it resolved `position: fixed`
+ * against the wrapper instead of the viewport — the pinned panel flew off
+ * screen and the section rendered as a tall empty void.
+ *
+ * Opacity creates a stacking context but never a containing block, so this
+ * keyframe is safe to leave filling. The route curtain carries the movement.
+ */
+@keyframes page-in {
   from {
     opacity: 0;
   }

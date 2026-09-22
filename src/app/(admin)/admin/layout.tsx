@@ -10,5 +10,5 @@ export const metadata: Metadata = {
  * brand's type and gold accent so it never feels like a different product.
  */
 export default function AdminRootLayout({ children }: { children: React.ReactNode }) {
-  return <div className="min-h-screen bg-linen text-ink">{children}</div>;
+  return <div className="min-h-screen bg-cream text-espresso">{children}</div>;
 }

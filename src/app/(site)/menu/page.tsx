@@ -6,6 +6,7 @@ import { MenuSection } from "@/components/menu/MenuSection";
 import { ClosingCTA } from "@/components/home/ClosingCTA";
 import { Marquee } from "@/components/ui/Marquee";
 import { getMenu, getSettings } from "@/lib/db/queries";
+import { PHOTOS } from "@/lib/images";
 
 export const revalidate = 300;
 
@@ -24,8 +25,10 @@ export default async function MenuPage() {
     <>
       <PageHeader
         eyebrow="The board"
-        heading={"What we are\npouring."}
+        heading={"What we are\n_pouring._"}
         standfirst="The coffee changes with the season and the pastry case changes with the morning. Everything below was true when the page was last saved."
+        plate={PHOTOS.pourOver}
+        margin="Roasted Tuesdays"
       />
 
       <Marquee
@@ -36,7 +39,7 @@ export default async function MenuPage() {
           "Nyeri · Kenya",
           "Roasted in house",
         ]}
-        duration={42}
+        duration={46}
       />
 
       {withItems.length ? (
@@ -48,13 +51,13 @@ export default async function MenuPage() {
               key={category.id}
               category={category}
               currency={settings.currency}
-              tone={index % 2 === 0 ? "dark" : "linen"}
+              tone={index % 2 === 0 ? "dark" : "light"}
             />
           ))}
         </>
       ) : (
         <div className="container-wide py-32">
-          <p className="max-w-lg text-[1.0625rem] leading-[1.8] text-cream-muted">
+          <p className="max-w-lg text-[var(--step-1)] leading-[1.85] text-latte">
             The menu is being updated. Please check back shortly, or write to us and
             we will tell you what is good today.
           </p>

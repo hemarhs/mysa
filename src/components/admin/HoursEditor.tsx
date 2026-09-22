@@ -18,8 +18,8 @@ function Saved({ state }: { state: ActionState }) {
       role={error ? "alert" : "status"}
       className={
         error
-          ? "border-l-2 border-terracotta bg-terracotta/8 py-3 pl-4 text-[0.875rem] text-terracotta"
-          : "border-l-2 border-gold-dim bg-gold/10 py-3 pl-4 text-[0.875rem] text-gold-dim"
+          ? "border-l-2 border-alert bg-alert/8 py-3 pl-4 text-[0.875rem] text-alert"
+          : "border-l-2 border-gold-ink bg-gold/10 py-3 pl-4 text-[0.875rem] text-gold-ink"
       }
     >
       {state.message}
@@ -54,8 +54,8 @@ export function HoursEditor({ hours }: { hours: Hours[] }) {
 
   return (
     <Card>
-      <h2 className="font-serif text-[1.375rem] font-light text-ink">Opening hours</h2>
-      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-ink-muted">
+      <h2 className="font-display text-[1.375rem] font-light text-espresso">Opening hours</h2>
+      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-mocha">
         Shown in the footer, on the contact page, and used for the “open now”
         indicator. Twenty-four hour time.
       </p>
@@ -63,13 +63,13 @@ export function HoursEditor({ hours }: { hours: Hours[] }) {
       <form action={formAction} className="mt-7 space-y-5">
         <Saved state={state} />
 
-        <ul className="divide-y divide-ink/10 border-y border-ink/10">
+        <ul className="divide-y divide-espresso/10 border-y border-espresso/10">
           {ordered.map((hour) => (
             <li
               key={hour.dayOfWeek}
               className="grid items-center gap-4 py-4 sm:grid-cols-[8rem_auto_auto_1fr]"
             >
-              <span className="font-sans text-[0.9375rem] text-ink">
+              <span className="font-sans text-[0.9375rem] text-espresso">
                 {DAY_NAMES[hour.dayOfWeek]}
               </span>
 
@@ -82,9 +82,9 @@ export function HoursEditor({ hours }: { hours: Hours[] }) {
                   name={`opensAt-${hour.dayOfWeek}`}
                   type="time"
                   defaultValue={hour.opensAt}
-                  className="border border-ink/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] tabular-nums text-ink"
+                  className="border border-espresso/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] tabular-nums text-espresso"
                 />
-                <span className="text-ink-muted">–</span>
+                <span className="text-mocha">–</span>
                 <label htmlFor={`closesAt-${hour.dayOfWeek}`} className="sr-only">
                   {DAY_NAMES[hour.dayOfWeek]} closing time
                 </label>
@@ -93,11 +93,11 @@ export function HoursEditor({ hours }: { hours: Hours[] }) {
                   name={`closesAt-${hour.dayOfWeek}`}
                   type="time"
                   defaultValue={hour.closesAt}
-                  className="border border-ink/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] tabular-nums text-ink"
+                  className="border border-espresso/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] tabular-nums text-espresso"
                 />
               </div>
 
-              <label className="flex items-center gap-2.5 font-sans text-[0.875rem] text-ink-muted">
+              <label className="flex items-center gap-2.5 font-sans text-[0.875rem] text-mocha">
                 <input
                   type="checkbox"
                   name={`isClosed-${hour.dayOfWeek}`}
@@ -117,7 +117,7 @@ export function HoursEditor({ hours }: { hours: Hours[] }) {
                   defaultValue={hour.note ?? ""}
                   placeholder="Optional note"
                   maxLength={160}
-                  className="w-full border border-ink/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] text-ink"
+                  className="w-full border border-espresso/18 bg-white/60 px-3 py-2 font-sans text-[0.875rem] text-espresso"
                 />
               </div>
             </li>
@@ -135,8 +135,8 @@ export function LocationEditor({ settings }: { settings: Settings }) {
 
   return (
     <Card>
-      <h2 className="font-serif text-[1.375rem] font-light text-ink">Location &amp; contact</h2>
-      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-ink-muted">
+      <h2 className="font-display text-[1.375rem] font-light text-espresso">Location &amp; contact</h2>
+      <p className="mt-2 max-w-lg text-[0.875rem] leading-relaxed text-mocha">
         Used in the footer, on the contact page, in the map, and in the search-engine
         listing for the café.
       </p>
@@ -192,7 +192,7 @@ export function LocationEditor({ settings }: { settings: Settings }) {
           <div>
             <Label htmlFor="currency">Currency</Label>
             <Input id="currency" name="currency" defaultValue={settings.currency} maxLength={3} required />
-            <p className="mt-2 text-[0.8125rem] text-ink-muted">
+            <p className="mt-2 text-[0.8125rem] text-mocha">
               Three-letter code, e.g. USD or GBP.
             </p>
           </div>
@@ -215,7 +215,7 @@ export function LocationEditor({ settings }: { settings: Settings }) {
               defaultValue={settings.announcement ?? ""}
               placeholder="Closed 24–26 December"
             />
-            <p className="mt-2 text-[0.8125rem] text-ink-muted">
+            <p className="mt-2 text-[0.8125rem] text-mocha">
               Appears under the headline on the home page. Leave empty to hide it.
             </p>
           </div>
