@@ -1,58 +1,152 @@
 @import "tailwindcss";
 
 /* ==========================================================================
-   Mysa design tokens
-   Palette rationale: a brown-shifted near-black base ("espresso") reads as
-   lamplit rather than technological; the accent is a desaturated brass gold
-   that stays legible on both the dark base and the linen contrast sections.
-   Terracotta is reserved for semantic states only (sold out, destructive).
+   MYSA — design tokens
+   --------------------------------------------------------------------------
+   One closed palette. Every colour in the product resolves to one of the
+   seven brand tones below, or to a documented mix of two *adjacent* tones.
+   Nothing else is allowed — no stray hex values in components.
+
+     Espresso   #1C120D   primary dark ground
+     Roast      #3B2418   secondary dark surfaces, cards
+     Mocha      #6B4531   borders, muted elements
+     Cream      #F5ECDD   light ground, type on dark
+     Latte      #D9C2A3   secondary type, soft fills
+     Brass gold #C9A15B   accent only — CTAs, rules, highlights, icons
+     Deep sage  #4A5A48   secondary accent, used sparingly
+
+   The `-soft` / `-light` / `-deep` / `-ink` variants are pre-computed mixes
+   of two neighbouring tones, written out as hex so that they are stable and
+   so that Tailwind's opacity modifiers (`bg-gold/40`) never have to nest
+   color-mix() twice.
    ========================================================================== */
+
 @theme {
-  /* Surfaces */
-  --color-espresso: #14100d;
-  --color-roast: #1e1814;
-  --color-roast-soft: #272019;
-  --color-linen: #f4efe7;
-  --color-linen-deep: #e9e1d5;
+  /* --- Ground ---------------------------------------------------------- */
+  --color-espresso: #1c120d;
+  --color-roast: #3b2418;
+  --color-roast-soft: #462b1e; /* roast → mocha, 78/22 */
+  --color-mocha: #6b4531;
 
-  /* Accent */
-  --color-gold: #c8a165;
-  --color-gold-light: #ddbb84;
-  --color-gold-dim: #8f724a;
+  /* --- Light ----------------------------------------------------------- */
+  --color-cream: #f5ecdd;
+  --color-cream-dim: #e8d9c3; /* cream → latte, 55/45 */
+  --color-latte: #d9c2a3;
 
-  /* Semantic */
-  --color-terracotta: #b2674a;
-  --color-terracotta-light: #d08a6c;
+  /* --- Accent ---------------------------------------------------------- */
+  --color-gold: #c9a15b;
+  --color-gold-light: #dabe8c; /* gold → cream, 62/38 — metallic highlight */
+  --color-gold-deep: #ad854e; /* gold → mocha, 70/30 */
+  --color-gold-ink: #7a5a2e; /* gold → espresso — AA-safe gold on cream */
 
-  /* Type on dark */
-  --color-cream: #eae3d9;
-  --color-cream-muted: #9a8f84;
+  /* --- Secondary accent ------------------------------------------------ */
+  --color-sage: #4a5a48;
+  --color-sage-light: #757f6d; /* sage → cream, AA-safe on espresso */
 
-  /* Type on linen */
-  --color-ink: #1a1512;
-  --color-ink-muted: #6b6259;
+  /* --- Semantic state --------------------------------------------------
+     Not decorative. Mocha opened up until it clears WCAG AA on both grounds,
+     so destructive and sold-out states read as *different* without leaving
+     the family. Never used for ornament. */
+  --color-alert: #9e5233; /* on cream  — 4.8:1 */
+  --color-alert-light: #c77b52; /* on espresso — 5.8:1 */
 
-  /* Hairlines */
-  --color-hairline: rgb(200 161 101 / 0.18);
-  --color-hairline-ink: rgb(26 21 18 / 0.12);
+  /* --- Aliases kept for continuity -------------------------------------
+     The first build of this site used these names throughout the admin
+     panel and a few shared components. They are re-pointed at the new
+     palette rather than renamed, so the redesign never had to touch
+     business logic to change a colour. */
+  --color-linen: var(--color-cream);
+  --color-linen-deep: var(--color-cream-dim);
+  --color-ink: var(--color-espresso);
+  --color-ink-muted: var(--color-mocha);
+  --color-cream-muted: var(--color-latte);
+  --color-gold-dim: var(--color-gold-ink);
+  --color-terracotta: var(--color-alert);
+  --color-terracotta-light: var(--color-alert-light);
 
-  /* Fonts (bound to next/font variables in layout.tsx) */
-  --font-serif: var(--font-fraunces), ui-serif, Georgia, serif;
-  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  /* --- Hairlines -------------------------------------------------------- */
+  --color-hairline: rgb(201 161 91 / 0.22);
+  --color-hairline-strong: rgb(201 161 91 / 0.42);
+  --color-hairline-ink: rgb(28 18 13 / 0.14);
+
+  /* --- Type ------------------------------------------------------------- */
+  --font-display: var(--font-display-face), Georgia, "Times New Roman", ui-serif,
+    serif;
+  --font-sans: var(--font-sans-face), system-ui, -apple-system, "Segoe UI",
+    sans-serif;
+  --font-serif: var(--font-display); /* alias */
+
+  /* --- Motion -----------------------------------------------------------
+     Three curves, and nothing else. Everything on this site decelerates;
+     nothing overshoots. `expo` is the signature — long, confident, no bounce. */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-power3: cubic-bezier(0.215, 0.61, 0.355, 1);
+  --ease-power2: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+
+  /* --- Elevation --------------------------------------------------------
+     Warm shadows only. A neutral black shadow over espresso reads as dirt. */
+  --shadow-warm-sm: 0 2px 14px -6px rgb(10 6 4 / 0.55);
+  --shadow-warm: 0 18px 50px -24px rgb(10 6 4 / 0.8);
+  --shadow-warm-lg: 0 40px 110px -40px rgb(10 6 4 / 0.9);
+  --shadow-gold: 0 0 0 1px rgb(201 161 91 / 0.28), 0 24px 70px -34px
+    rgb(201 161 91 / 0.35);
 }
 
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
 @layer base {
+  :root {
+    color-scheme: dark;
+    /* Consumed by the fluid type scale below. */
+    --step--1: clamp(0.8125rem, 0.78rem + 0.16vw, 0.875rem);
+    --step-0: clamp(0.9375rem, 0.9rem + 0.2vw, 1.0625rem);
+    --step-1: clamp(1.0625rem, 1rem + 0.3vw, 1.1875rem);
+    --step-2: clamp(1.25rem, 1.1rem + 0.7vw, 1.5rem);
+    --step-3: clamp(1.5rem, 1.25rem + 1.2vw, 2rem);
+    --step-4: clamp(1.875rem, 1.4rem + 2.2vw, 2.75rem);
+    --step-5: clamp(2.25rem, 1.5rem + 3.6vw, 4rem);
+    --step-6: clamp(2.75rem, 1.4rem + 6vw, 6rem);
+    --step-7: clamp(3.25rem, 1.2rem + 9vw, 8rem);
+  }
+
+  * {
+    border-color: var(--color-hairline);
+  }
+
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+  }
+
+  /* Lenis drives scrolling once it is mounted; the native smooth behaviour
+     would fight it. The class is added by the smooth-scroll provider only
+     after Lenis has actually started, so a failed init degrades to native. */
+  html.lenis,
+  html.lenis body {
+    height: auto;
+  }
+  html.lenis {
+    scroll-behavior: auto;
+  }
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+  .lenis.lenis-stopped {
+    overflow: hidden;
   }
 
   body {
     background-color: var(--color-espresso);
     color: var(--color-cream);
     font-family: var(--font-sans);
+    font-size: var(--step-0);
+    line-height: 1.75;
     font-feature-settings: "kern", "liga", "calt";
+    overflow-x: hidden;
   }
 
   ::selection {
@@ -63,11 +157,17 @@
   :focus-visible {
     outline: 2px solid var(--color-gold);
     outline-offset: 3px;
+    border-radius: 1px;
   }
 
-  h1, h2, h3, h4 {
-    font-family: var(--font-serif);
-    font-weight: 400;
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    font-weight: 300;
+    letter-spacing: -0.015em;
+    line-height: 1.02;
     text-wrap: balance;
   }
 
@@ -75,60 +175,120 @@
     text-wrap: pretty;
   }
 
+  /* A dark, warm scrollbar. A default light one punches a bright stripe
+     down the edge of an otherwise candlelit page. */
+  @supports (scrollbar-color: red blue) {
+    html {
+      scrollbar-color: var(--color-mocha) var(--color-espresso);
+      scrollbar-width: thin;
+    }
+  }
+
+  img,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  /* ------------------------------------------------------------------
+     Reduced motion. Every animated surface on this site also has a
+     static composition; this switch reveals it rather than freezing a
+     half-played animation.
+     ------------------------------------------------------------------ */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
-    *, *::before, *::after {
+
+    *,
+    *::before,
+    *::after {
       animation-duration: 0.01ms !important;
       animation-iteration-count: 1 !important;
       transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+
+    [data-motion] {
+      opacity: 1 !important;
+      transform: none !important;
+      clip-path: none !important;
     }
   }
 }
 
+/* ==========================================================================
+   Type utilities
+   ========================================================================== */
+
 @utility display {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-weight: 300;
-  letter-spacing: -0.03em;
-  line-height: 0.98;
+  letter-spacing: -0.018em;
+  line-height: 1.0;
+}
+
+/** The one italic in the system — reserved for a single emphasised word. */
+@utility display-em {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 300;
+  letter-spacing: -0.01em;
 }
 
 @utility eyebrow {
   font-family: var(--font-sans);
   font-size: 0.6875rem;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.22em;
+  letter-spacing: 0.2em;
+  line-height: 1.4;
 }
 
-@utility rule {
-  height: 1px;
-  width: 3rem;
-  background-color: color-mix(in oklab, var(--color-gold) 50%, transparent);
+@utility body-lg {
+  font-size: var(--step-1);
+  line-height: 1.85;
 }
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Layout utilities
+   ========================================================================== */
 
 @utility container-wide {
   margin-inline: auto;
   width: 100%;
-  max-width: 88rem;
-  padding-inline: 1.5rem;
+  max-width: 90rem;
+  padding-inline: 1.25rem;
+  @media (width >= 30rem) {
+    padding-inline: 1.75rem;
+  }
   @media (width >= 48rem) {
-    padding-inline: 2.5rem;
+    padding-inline: 2.75rem;
   }
   @media (width >= 64rem) {
     padding-inline: 4rem;
+  }
+  @media (width >= 100rem) {
+    padding-inline: 5.5rem;
   }
 }
 
 @utility container-narrow {
   margin-inline: auto;
   width: 100%;
-  max-width: 48rem;
-  padding-inline: 1.5rem;
+  max-width: 46rem;
+  padding-inline: 1.25rem;
   @media (width >= 48rem) {
-    padding-inline: 2.5rem;
+    padding-inline: 2.75rem;
   }
+}
+
+@utility section-y {
+  padding-block: clamp(4.5rem, 9vw, 11rem);
 }
 
 @utility no-scrollbar {
@@ -139,34 +299,227 @@
   }
 }
 
-/* Subtle film grain over the hero, keeps large dark areas from banding */
+/* ==========================================================================
+   Ornament
+   ========================================================================== */
+
+/** Thin gold hairline that tapers out at both ends, like an engraved rule. */
+@utility rule-gold {
+  height: 1px;
+  width: 3.5rem;
+  background-image: linear-gradient(
+    to right,
+    var(--color-gold) 0%,
+    color-mix(in oklab, var(--color-gold) 25%, transparent) 100%
+  );
+}
+
+/** Full-width divider used between editorial bands. */
+@utility rule-wide {
+  height: 1px;
+  width: 100%;
+  background-image: linear-gradient(
+    to right,
+    transparent 0%,
+    var(--color-hairline-strong) 22%,
+    var(--color-hairline-strong) 78%,
+    transparent 100%
+  );
+}
+
+/** Brushed-brass surface for small accents and the wordmark fill. */
+@utility brass {
+  background-image: linear-gradient(
+    105deg,
+    var(--color-gold-deep) 0%,
+    var(--color-gold) 26%,
+    var(--color-gold-light) 44%,
+    var(--color-gold) 62%,
+    var(--color-gold-deep) 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/** Same brass, but the sheen travels across the letterforms once in view. */
+@utility brass-shimmer {
+  background-image: linear-gradient(
+    105deg,
+    var(--color-gold-deep) 0%,
+    var(--color-gold) 26%,
+    var(--color-gold-light) 44%,
+    var(--color-gold) 62%,
+    var(--color-gold-deep) 100%
+  );
+  background-size: 260% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: brass-sweep 7s var(--ease-power2) infinite;
+}
+
+/** Warm, dark glass. Never white glass — it reads as a different product. */
+@utility glass-warm {
+  background-color: color-mix(in oklab, var(--color-roast) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  border: 1px solid var(--color-hairline);
+}
+
+@utility glass-espresso {
+  background-color: color-mix(in oklab, var(--color-espresso) 88%, transparent);
+  backdrop-filter: blur(22px) saturate(112%);
+  -webkit-backdrop-filter: blur(22px) saturate(112%);
+}
+
+/** A gold hairline that draws itself in from the left on hover. */
+@utility hairline-draw {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 1px;
+    background-image: linear-gradient(
+      to right,
+      var(--color-gold) 0%,
+      color-mix(in oklab, var(--color-gold) 30%, transparent) 100%
+    );
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 900ms var(--ease-expo);
+  }
+
+  &:hover::after,
+  &:focus-within::after {
+    transform: scaleX(1);
+  }
+}
+
+/* ==========================================================================
+   Texture
+   --------------------------------------------------------------------------
+   Two layers, both pure CSS so there is nothing to download and nothing to
+   404. The grain hides 8-bit banding across the large flat espresso fields;
+   the paper layer adds a faint laid-texture to the cream sections so they
+   read as stock rather than as #fff with the brightness turned down.
+   ========================================================================== */
+
 @utility grain {
+  position: relative;
+
   &::after {
     content: "";
     position: absolute;
     inset: 0;
+    z-index: 1;
     pointer-events: none;
-    opacity: 0.035;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
+
+@utility paper {
+  position: relative;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.35;
+    mix-blend-mode: multiply;
+    background-image:
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.62' numOctaves='5' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)' opacity='0.16'/%3E%3C/svg%3E"),
+      repeating-linear-gradient(
+        90deg,
+        rgb(107 69 49 / 0.035) 0px,
+        rgb(107 69 49 / 0.035) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+  }
+}
+
+/* Page-wide film grain, above everything, below nothing. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* A faint vignette keeps attention in the middle of the page on wide screens. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 9997;
+  pointer-events: none;
+  background-image: radial-gradient(
+    120% 90% at 50% 45%,
+    transparent 52%,
+    rgb(10 6 4 / 0.28) 100%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::after {
+    opacity: 0.022;
+  }
+}
+
+/* ==========================================================================
+   Custom cursor
+   --------------------------------------------------------------------------
+   Only ever enabled by the cursor component, and only on a fine pointer with
+   a hover-capable device. The native cursor is hidden by the data attribute
+   so that if the component fails to mount for any reason, the real cursor is
+   still there.
+   ========================================================================== */
+
+html[data-cursor="on"],
+html[data-cursor="on"] * {
+  cursor: none !important;
+}
+
+/* ...except where the real caret carries meaning. */
+html[data-cursor="on"] input,
+html[data-cursor="on"] textarea,
+html[data-cursor="on"] select,
+html[data-cursor="on"] [contenteditable="true"] {
+  cursor: auto !important;
+}
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
 
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(24px);
+    transform: translate3d(0, 22px, 0);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  [class*="animate-[fade-up"] {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }
 
@@ -179,47 +532,64 @@
   }
 }
 
-/* --------------------------------------------------------------------------
-   Page-wide film grain. Large flat areas of a near-black brown band badly on
-   8-bit displays; a trace of noise hides it and reads as printed stock.
-   -------------------------------------------------------------------------- */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.028;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 300 300' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+@keyframes brass-sweep {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+/** Slow Ken Burns for editorial photography. */
+@keyframes ken-burns {
+  0% {
+    transform: scale(1.02) translate3d(0, 0, 0);
+  }
+  100% {
+    transform: scale(1.12) translate3d(-1.2%, -1.6%, 0);
+  }
+}
+
+@keyframes draw-stroke {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes steam-drift {
+  0% {
+    opacity: 0;
+    transform: translateY(6%) scaleX(0.9);
+  }
+  30% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70%) scaleX(1.5);
+  }
+}
+
+@utility ken-burns {
+  animation: ken-burns 26s var(--ease-power2) alternate infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  body::after {
-    opacity: 0.02;
+  .ken-burns {
+    animation: none !important;
+    transform: none !important;
   }
 }
 
-/* A gold hairline that draws itself in on hover — used on editorial cards. */
-@utility hairline-draw {
-  position: relative;
+/* ==========================================================================
+   Third-party surfaces
+   ========================================================================== */
 
-  &::after {
-    content: "";
-    position: absolute;
-    inset-inline: 0;
-    bottom: 0;
-    height: 1px;
-    background: linear-gradient(
-      to right,
-      var(--color-gold) 0%,
-      color-mix(in oklab, var(--color-gold) 40%, transparent) 100%
-    );
-    transform: scaleX(0);
-    transform-origin: left;
-    transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  &:hover::after {
-    transform: scaleX(1);
-  }
+/* The OpenStreetMap embed is filtered into the palette in MapEmbed.tsx; this
+   just stops it flashing white before the iframe paints. */
+iframe {
+  background-color: var(--color-roast);
+  color-scheme: light;
 }

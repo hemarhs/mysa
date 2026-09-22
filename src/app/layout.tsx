@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 
-import { fraunces, inter } from "@/lib/fonts";
+import { display, sans } from "@/lib/fonts";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
@@ -43,14 +43,23 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#14100d",
+  themeColor: "#1c120d",
   colorScheme: "dark",
+  width: "device-width",
+  initialScale: 1,
+  // Pinch-zoom stays available: capping it is an accessibility failure, and
+  // nothing in this design depends on the viewport scale being fixed.
+  maximumScale: 5,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${inter.variable}`} suppressHydrationWarning>
-      <body className="min-h-screen bg-espresso text-cream">{children}</body>
+    <html
+      lang="en"
+      className={`${display.variable} ${sans.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-screen bg-espresso text-cream antialiased">{children}</body>
     </html>
   );
 }

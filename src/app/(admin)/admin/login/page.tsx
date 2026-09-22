@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 
-import { Wordmark } from "@/components/site/Wordmark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { SITE } from "@/lib/site";
 import { LoginForm } from "./LoginForm";
 

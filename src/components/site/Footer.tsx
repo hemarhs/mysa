@@ -3,7 +3,9 @@ import Link from "next/link";
 import { getHours, getSettings } from "@/lib/db/queries";
 import { groupHours } from "@/lib/format";
 import { NAV_LINKS, SITE } from "@/lib/site";
-import { Wordmark } from "./Wordmark";
+import { Wordmark } from "@/components/brand/Wordmark";
+import { Eyebrow } from "@/components/ui/Ornament";
+import { FooterSteam } from "./FooterSteam";
 
 export async function Footer() {
   const [settings, hours] = await Promise.all([getSettings(), getHours()]);
@@ -11,25 +13,46 @@ export async function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="border-t border-hairline bg-espresso">
-      <div className="container-wide py-20 md:py-24">
-        <div className="grid gap-14 md:grid-cols-12">
+    <footer className="relative isolate overflow-hidden border-t border-hairline bg-espresso">
+      {/* Slow steam drifting up behind the type. Client component, lazy, and
+          it removes itself entirely on reduced-motion. */}
+      <FooterSteam />
+
+      {/* One warm pool of lamplight, low and to the left. */}
+      <div
+        className="pointer-events-none absolute -bottom-40 left-[8%] h-[34rem] w-[34rem] rounded-full opacity-50 blur-[130px]"
+        style={{
+          background:
+            "radial-gradient(circle, rgba(201,161,91,0.16) 0%, rgba(107,69,49,0.08) 45%, transparent 72%)",
+        }}
+        aria-hidden
+      />
+
+      <div className="container-wide relative z-10 py-20 md:py-28">
+        <div className="grid gap-14 md:grid-cols-12 md:gap-10">
+          {/* --- Mark and address line -------------------------------------- */}
           <div className="md:col-span-5">
-            <Wordmark className="text-cream" />
-            <p className="mt-7 max-w-sm text-[0.9375rem] leading-[1.8] text-cream-muted">
+            <Wordmark className="h-6 text-gold md:h-7" />
+
+            <p className="mt-8 max-w-sm text-[0.9375rem] leading-[1.9] text-latte">
               {SITE.description}
             </p>
+
             <a
               href={`mailto:${SITE.email}`}
-              className="mt-8 inline-block font-serif text-2xl font-light text-gold transition-colors duration-400 hover:text-gold-light"
+              className="group/mail mt-9 inline-flex flex-col gap-1.5"
             >
-              {SITE.email}
+              <span className="font-display text-[1.75rem] font-light text-cream transition-colors duration-500 group-hover/mail:text-gold">
+                {SITE.email}
+              </span>
+              <span className="block h-px w-full origin-left scale-x-0 bg-gold transition-transform duration-[700ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/mail:scale-x-100" />
             </a>
           </div>
 
+          {/* --- Find us ---------------------------------------------------- */}
           <div className="md:col-span-3">
-            <h3 className="eyebrow text-gold">Find us</h3>
-            <address className="mt-6 not-italic text-[0.9375rem] leading-[1.9] text-cream-muted">
+            <Eyebrow withRule={false}>Find us</Eyebrow>
+            <address className="mt-6 not-italic text-[0.9375rem] leading-[1.95] text-latte">
               {settings.addressLine1}
               <br />
               {settings.addressLine2 ? (
@@ -44,33 +67,35 @@ export async function Footer() {
             {settings.phone ? (
               <a
                 href={`tel:${settings.phone.replace(/[^0-9+]/g, "")}`}
-                className="mt-4 inline-block text-[0.9375rem] text-cream-muted transition-colors duration-400 hover:text-gold"
+                className="mt-5 inline-block text-[0.9375rem] text-latte transition-colors duration-500 hover:text-gold"
               >
                 {settings.phone}
               </a>
             ) : null}
           </div>
 
+          {/* --- Hours ------------------------------------------------------ */}
           <div className="md:col-span-2">
-            <h3 className="eyebrow text-gold">Hours</h3>
-            <dl className="mt-6 space-y-2 text-[0.9375rem] text-cream-muted">
+            <Eyebrow withRule={false}>Hours</Eyebrow>
+            <dl className="mt-6 space-y-2.5 text-[0.875rem] text-latte">
               {grouped.map((group) => (
                 <div key={group.label} className="flex justify-between gap-4">
-                  <dt className="tabular-nums">{group.label}</dt>
-                  <dd className="tabular-nums text-cream/70">{group.value}</dd>
+                  <dt className="tnum">{group.label}</dt>
+                  <dd className="tnum text-cream/80">{group.value}</dd>
                 </div>
               ))}
             </dl>
           </div>
 
+          {/* --- Elsewhere --------------------------------------------------- */}
           <div className="md:col-span-2">
-            <h3 className="eyebrow text-gold">Elsewhere</h3>
-            <ul className="mt-6 space-y-3 text-[0.9375rem] text-cream-muted">
+            <Eyebrow withRule={false}>Elsewhere</Eyebrow>
+            <ul className="mt-6 space-y-3.5 text-[0.9375rem] text-latte">
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="transition-colors duration-400 hover:text-gold"
+                    className="inline-block transition-colors duration-500 hover:text-gold"
                   >
                     {link.label}
                   </Link>
@@ -81,20 +106,20 @@ export async function Footer() {
                   href={SITE.social.instagram}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="transition-colors duration-400 hover:text-gold"
+                  className="inline-block transition-colors duration-500 hover:text-gold"
                 >
-                  Instagram
+                  Instagram ↗
                 </a>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-20 flex flex-col gap-4 border-t border-hairline pt-8 text-[0.8125rem] text-cream-muted md:flex-row md:items-center md:justify-between">
+        <div className="mt-20 flex flex-col gap-4 border-t border-hairline pt-8 text-[0.75rem] uppercase tracking-[0.16em] text-latte/60 md:flex-row md:items-center md:justify-between">
           <p>
-            © {year} {SITE.legalName}. Made on Linden Row.
+            © {year} {SITE.legalName}
           </p>
-          <p className="text-cream-muted/70">
+          <p className="normal-case tracking-normal text-latte/50">
             Roasted in small lots. Nothing sold more than sixteen days off roast.
           </p>
         </div>

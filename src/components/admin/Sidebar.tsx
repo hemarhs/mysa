@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { Wordmark } from "@/components/site/Wordmark";
+import { Wordmark } from "@/components/brand/Wordmark";
 import { cn } from "@/lib/cn";
 
 const LINKS = [

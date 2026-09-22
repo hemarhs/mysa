@@ -15,25 +15,34 @@ type FigureProps = {
   imageClassName?: string;
   sizes?: string;
   priority?: boolean;
-  /** Slow zoom on hover, used on the gallery and menu previews. */
+  /** Slow zoom on hover — used on cards and gallery tiles. */
   zoomOnHover?: boolean;
-  /** Wipe the image in from below as it enters view. */
+  /** Continuous, very slow Ken Burns drift. For hero and feature plates. */
+  kenBurns?: boolean;
+  /** Mask-wipe the image in from below as it enters view. */
   reveal?: boolean;
   revealDelay?: number;
+  /** Warm grade strength, 0–1. Every photo gets a little; heroes get more. */
+  grade?: number;
+  /** A hairline gold frame, inset slightly. Used on editorial plates. */
+  framed?: boolean;
 };
 
 /**
  * Every photograph on the site goes through here.
  *
- * Two rules govern this component, both learned the hard way:
+ * Three rules govern it, all learned the hard way:
  *
- *  1. A photograph must never be hidden by its own entrance animation. The
- *     reveal is driven by a plain IntersectionObserver with a timeout that
- *     forces the visible state, so a missed observer callback degrades to
- *     "no animation", never to "no image".
- *  2. A dead URL must look designed. An on-palette texture sits behind every
- *     image and the component swaps to it on error, so a broken link shows a
- *     warm panel rather than a broken-image icon.
+ *  1. **A photograph must never be hidden by its own entrance animation.**
+ *     The reveal is driven by a plain IntersectionObserver with a timeout
+ *     that forces the visible state, so a missed observer callback degrades
+ *     to "no animation", never to "no image".
+ *  2. **A dead URL must look designed.** An on-palette texture sits behind
+ *     every image and the component swaps to it on error, so a broken link
+ *     shows a warm panel rather than a broken-image icon.
+ *  3. **The set must read as one shoot.** A gold soft-light wash and a
+ *     shadow lift are applied to every photograph, which is what pulls
+ *     mismatched sources into a single warm grade.
  */
 export function Figure({
   src,
@@ -44,8 +53,11 @@ export function Figure({
   sizes = "(max-width: 768px) 100vw, 50vw",
   priority = false,
   zoomOnHover = false,
+  kenBurns = false,
   reveal = true,
   revealDelay = 0,
+  grade = 0.1,
+  framed = false,
 }: FigureProps) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -95,50 +107,81 @@ export function Figure({
   return (
     <div
       ref={containerRef}
-      className={cn("relative overflow-hidden bg-roast", className)}
+      data-motion
+      className={cn(
+        "relative overflow-hidden bg-roast",
+        framed && "ring-1 ring-gold/18 ring-offset-0",
+        className
+      )}
       style={{
         backgroundImage: `url(${fallback})`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
+      {/* The mask. Clip-path wipes the frame open from the bottom while the
+          contents settle back from a slight overscale — two cheap, composited
+          properties that together read as a curtain rather than a fade. */}
       <div
-        className="absolute inset-0 transition-[clip-path,transform] duration-[1300ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
+        className="absolute inset-0 transition-[clip-path,transform] duration-[1400ms] ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform"
         style={{
           clipPath: revealed ? "inset(0% 0% 0% 0%)" : "inset(100% 0% 0% 0%)",
-          transform: revealed ? "scale(1)" : "scale(1.1)",
+          transform: revealed ? "scale(1)" : "scale(1.08)",
           transitionDelay: `${revealDelay}s`,
         }}
       >
-        <Image
-          src={failed ? fallback : src}
-          alt={alt}
-          fill
-          sizes={sizes}
-          priority={priority}
-          // Never lazy: the wrapper is briefly clipped, and a lazy loader can
-          // read that as off-screen and refuse to fetch.
-          loading="eager"
-          placeholder="blur"
-          blurDataURL={BLUR}
-          onError={() => setFailed(true)}
-          onLoad={() => setLoaded(true)}
+        <div
           className={cn(
-            "object-cover transition-[opacity,transform] duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
-            loaded ? "opacity-100" : "opacity-0",
-            zoomOnHover && "group-hover:scale-[1.05]",
-            imageClassName
+            "absolute inset-0",
+            kenBurns && "ken-burns",
+            zoomOnHover &&
+              "transition-transform duration-[1600ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.07]"
           )}
-        />
+        >
+          <Image
+            src={failed ? fallback : src}
+            alt={alt}
+            fill
+            sizes={sizes}
+            priority={priority}
+            // Never lazy: the wrapper is briefly clipped, and a lazy loader
+            // can read that as off-screen and refuse to fetch.
+            loading="eager"
+            placeholder="blur"
+            blurDataURL={BLUR}
+            onError={() => setFailed(true)}
+            onLoad={() => setLoaded(true)}
+            className={cn(
+              "object-cover transition-opacity duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)]",
+              loaded ? "opacity-100" : "opacity-0",
+              imageClassName
+            )}
+          />
+        </div>
       </div>
 
-      {/* A whisper of warmth over every photograph, so the set reads as one
-          shoot even when the sources differ. */}
+      {/* The warm grade: a gold soft-light wash, plus a whisper of espresso
+          in the shadows so nothing sits colder than the page around it. */}
       <div
         className="pointer-events-none absolute inset-0 mix-blend-soft-light"
-        style={{ backgroundColor: "rgba(200, 161, 101, 0.10)" }}
+        style={{ backgroundColor: `rgba(201, 161, 91, ${grade})` }}
         aria-hidden
       />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40 mix-blend-multiply"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(28,18,13,0.55) 0%, rgba(28,18,13,0) 55%)",
+        }}
+        aria-hidden
+      />
+
+      {framed ? (
+        <span
+          className="pointer-events-none absolute inset-3 border border-gold/20"
+          aria-hidden
+        />
+      ) : null}
     </div>
   );
 }

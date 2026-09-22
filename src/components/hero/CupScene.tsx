@@ -1,581 +1,779 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Suspense, useEffect, useMemo, useRef } from "react";
+import { Environment, Lightformer, ContactShadows } from "@react-three/drei";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
+import type { SceneTier } from "@/lib/motion";
+
+/* ==========================================================================
+   The hero object: a cup of coffee on a saucer, under a warm studio lamp.
+   --------------------------------------------------------------------------
+   Everything here is procedural. There is no .glb to download, no texture to
+   fetch, and no environment HDR pulled from a CDN — the studio lighting is
+   built from drei `Lightformer` planes rendered into a cube map once, at
+   mount. That matters for more than page weight: an asset fetched from a
+   third party at runtime is one more thing that can be slow, blocked, or
+   simply gone on the morning you show the site to someone.
+
+   Palette discipline holds in 3D as well. Ceramic is Cream, the liquid is
+   Espresso with a Latte crema, the rim light is Brass Gold and the fill is
+   Mocha. Nothing in this file is outside the brand tones.
+   ========================================================================== */
+
+const CERAMIC = "#f5ecdd";
+const CERAMIC_SHADOW = "#d9c2a3";
+const LIQUID_DEEP = "#1c120d";
+const CREMA = "#d9c2a3";
+const GOLD = "#c9a15b";
+const MOCHA = "#6b4531";
+
+/* --------------------------------------------------------------------------
+   Geometry
+   -------------------------------------------------------------------------- */
+
 /**
- * The single 3D element on the site: a ceramic cup on a saucer, lit like a
- * product shot, turning slowly.
+ * Samples a control polygon into a smooth curve before lathing it.
  *
- * Built from lathe and tube geometry rather than a loaded GLTF — nothing to
- * download, nothing to cache-bust, and it stays on palette. No drei
- * <Environment> either: those fetch an HDR from a CDN, which is a network
- * dependency the hero does not need. The studio lighting below is generated
- * at runtime instead.
+ * Lathing the control points directly is what produced the faceted, "bent
+ * tin" silhouette in the first cut: the lathe interpolates *around* the axis
+ * but not *along* the profile, so a ten-point profile gives nine flat bands
+ * however many radial segments you ask for. Sampling a spline first fixes the
+ * shading for free, because the vertex normals then follow a real curve.
  */
-
-/* -------------------------------------------------------------------------- */
-/* Geometry                                                                   */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Cross-section of the cup, revolved around Y.
- *
- * The proportions are a real cappuccino cup: a foot wide enough to look
- * stable, a body that swells through the middle, and a wall with visible
- * thickness at the rim. A straight taper from a narrow base is what makes a
- * 3D cup read as a paper cup.
- */
-const CUP_PROFILE: [number, number][] = [
-  [0.0, 0.0],
-  [0.36, 0.0],
-  [0.395, 0.016],
-  [0.412, 0.048],
-  // outside wall, swelling through the belly
-  [0.458, 0.14],
-  [0.522, 0.28],
-  [0.583, 0.43],
-  [0.629, 0.57],
-  [0.655, 0.69],
-  [0.666, 0.755],
-  [0.669, 0.78],
-  // over the rim — the gap here is the wall thickness
-  [0.639, 0.78],
-  [0.633, 0.73],
-  [0.601, 0.6],
-  [0.549, 0.44],
-  [0.479, 0.27],
-  [0.414, 0.12],
-  [0.372, 0.05],
-  [0.0, 0.042],
-];
-
-/** Shallow dish, raised lip, small foot ring. */
-const SAUCER_PROFILE: [number, number][] = [
-  [0.0, 0.048],
-  [0.3, 0.043],
-  [0.55, 0.036],
-  [0.72, 0.042],
-  [0.85, 0.066],
-  [0.91, 0.088],
-  [0.935, 0.082],
-  [0.9, 0.052],
-  [0.7, 0.022],
-  [0.44, 0.011],
-  [0.36, 0.0],
-  [0.0, 0.006],
-];
-
-/**
- * The handle, as a tube swept along a curve that starts and ends on the cup
- * wall. A torus floats beside the cup; this is actually attached.
- */
-const HANDLE_CURVE = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(0.6, 0.6, 0),
-  new THREE.Vector3(0.81, 0.585, 0),
-  new THREE.Vector3(0.92, 0.47, 0),
-  new THREE.Vector3(0.915, 0.34, 0),
-  new THREE.Vector3(0.8, 0.255, 0),
-  new THREE.Vector3(0.58, 0.235, 0),
-]);
-
-/** Roughly eleven seconds for a full turn — a showcase, not a spin. */
-const ROTATION_SPEED = (Math.PI * 2) / 11;
-
-/* -------------------------------------------------------------------------- */
-/* Materials                                                                  */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Matte glazed porcelain. High clearcoat plus low roughness reads as plastic;
- * a broad, slightly rough surface with a thin clearcoat reads as ceramic.
- */
-const CERAMIC = {
-  color: "#ffffff",
-  roughness: 0.46,
-  metalness: 0,
-  clearcoat: 0.22,
-  clearcoatRoughness: 0.45,
-  envMapIntensity: 1.15,
-} as const;
-
-/**
- * Deterministic pseudo-random, so the scene is identical on every render and
- * between server and client. Math.random() during render is impure.
- */
-function seeded(seed: number) {
-  let state = seed >>> 0;
-  return () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
+function lathe(points: THREE.Vector2[], radial: number, samples = 64) {
+  const curve = new THREE.SplineCurve(points);
+  const geometry = new THREE.LatheGeometry(curve.getPoints(samples), radial);
+  geometry.computeVertexNormals();
+  return geometry;
 }
 
-/** A soft radial dot, reused by the steam and the depth particles. */
-function useSoftDot() {
+/**
+ * The cup, as a single lathed profile that goes up the outside, over the rim
+ * and back down the inside. Modelling the wall thickness rather than using a
+ * one-sided surface is what stops the rim reading as paper when the light
+ * grazes it.
+ */
+function useCupGeometry(segments: number) {
   return useMemo(() => {
-    const size = 128;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    const profile: THREE.Vector2[] = [
+      new THREE.Vector2(0.0, 0.0),
+      new THREE.Vector2(0.46, 0.0),
+      new THREE.Vector2(0.5, 0.012),
+      new THREE.Vector2(0.52, 0.045),
+      new THREE.Vector2(0.5, 0.07),
+      new THREE.Vector2(0.53, 0.1),
+      new THREE.Vector2(0.62, 0.3),
+      new THREE.Vector2(0.71, 0.56),
+      new THREE.Vector2(0.775, 0.78),
+      new THREE.Vector2(0.79, 0.825),
+      // over the rim
+      new THREE.Vector2(0.772, 0.832),
+      new THREE.Vector2(0.756, 0.822),
+      // and back down the inside
+      new THREE.Vector2(0.69, 0.56),
+      new THREE.Vector2(0.6, 0.3),
+      new THREE.Vector2(0.51, 0.1),
+      new THREE.Vector2(0.48, 0.075),
+      new THREE.Vector2(0.0, 0.075),
+    ];
 
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      g.addColorStop(0, "rgba(255,255,255,1)");
-      g.addColorStop(0.35, "rgba(255,255,255,0.45)");
-      g.addColorStop(0.7, "rgba(255,255,255,0.1)");
-      g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    return texture;
-  }, []);
+    return lathe(profile, segments, 80);
+  }, [segments]);
 }
 
-/**
- * The glaze, with the wordmark fired into it.
- *
- * Lathe geometry lays U around the circumference and V up the profile, so
- * drawing the mark at the middle of the canvas places it on one face of the
- * cup and lets the curve wrap it naturally.
- */
-function useGlaze() {
+/** The saucer: a shallow dish with a raised lip, also lathed. */
+function useSaucerGeometry(segments: number) {
   return useMemo(() => {
-    const width = 2048;
-    const height = 1024;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+    const profile: THREE.Vector2[] = [
+      new THREE.Vector2(0.0, 0.0),
+      new THREE.Vector2(0.44, 0.0),
+      new THREE.Vector2(0.5, 0.004),
+      // the well the cup's foot sits in
+      new THREE.Vector2(0.56, 0.026),
+      new THREE.Vector2(0.72, 0.04),
+      new THREE.Vector2(0.95, 0.062),
+      new THREE.Vector2(1.1, 0.098),
+      new THREE.Vector2(1.16, 0.132),
+      new THREE.Vector2(1.175, 0.15),
+      // over the lip and back underneath
+      new THREE.Vector2(1.16, 0.158),
+      new THREE.Vector2(1.08, 0.116),
+      new THREE.Vector2(0.9, 0.078),
+      new THREE.Vector2(0.62, 0.05),
+      new THREE.Vector2(0.5, 0.04),
+      new THREE.Vector2(0.46, 0.03),
+      new THREE.Vector2(0.0, 0.028),
+    ];
 
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.fillStyle = "#f6f1e7";
-      ctx.fillRect(0, 0, width, height);
-
-      // A trace of unevenness, so the glaze is not a flat swatch.
-      const random = seeded(4242);
-      ctx.globalAlpha = 0.03;
-      for (let i = 0; i < 160; i += 1) {
-        ctx.fillStyle = random() > 0.5 ? "#000000" : "#ffffff";
-        const r = 30 + random() * 120;
-        ctx.beginPath();
-        ctx.arc(random() * width, random() * height, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.globalAlpha = 1;
-
-      // V runs bottom-to-top on the lathe, so a low y here sits high on the cup.
-      ctx.save();
-      ctx.translate(width * 0.5, height * 0.34);
-      ctx.scale(-1, 1); // lathe winding mirrors U
-      ctx.fillStyle = "#b08d54";
-      ctx.font = "500 74px Georgia, 'Times New Roman', serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.letterSpacing = "34px";
-      ctx.fillText("MYSA", 0, 0);
-      ctx.restore();
-    }
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = 8;
-    return texture;
-  }, []);
+    return lathe(profile, segments, 72);
+  }, [segments]);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Environment, shadow, atmosphere                                            */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   The liquid surface
+   --------------------------------------------------------------------------
+   A disc with a small shader on it. Three things are happening: a very slow
+   swirl in the crema, a tight specular glint that answers the key light, and
+   a soft crema ring where the coffee meets the ceramic. All of it is done in
+   the fragment stage — the geometry is sixty-odd triangles.
+   -------------------------------------------------------------------------- */
 
-/**
- * A studio environment generated at runtime, with no HDR to download.
- *
- * This is what makes glazed ceramic look glazed and coffee look wet. Lights
- * alone give diffuse shading and a specular dot; an environment gives the
- * broad soft reflections a real object picks up from a room — the biggest
- * single difference between "3D render" and "photograph".
- */
-function StudioEnvironment() {
-  const { gl, scene } = useThree();
+const LIQUID_VERTEX = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vPos;
 
-  useEffect(() => {
-    const width = 512;
-    const height = 256;
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
+  void main() {
+    vUv = uv;
+    vPos = position;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
 
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+const LIQUID_FRAGMENT = /* glsl */ `
+  precision highp float;
 
-    const base = ctx.createLinearGradient(0, 0, 0, height);
-    base.addColorStop(0, "#2e251c");
-    base.addColorStop(0.45, "#171210");
-    base.addColorStop(1, "#0b0908");
-    ctx.fillStyle = base;
-    ctx.fillRect(0, 0, width, height);
+  uniform float uTime;
+  uniform vec3 uDeep;
+  uniform vec3 uCrema;
+  uniform vec3 uGold;
+  uniform vec2 uPointer;
 
-    // Key softbox, upper right — the broad band that rakes across the rim.
-    const key = ctx.createRadialGradient(
-      width * 0.68, height * 0.18, 0,
-      width * 0.68, height * 0.18, width * 0.32
+  varying vec2 vUv;
+  varying vec3 vPos;
+
+  // Cheap value noise — two octaves is plenty for crema marbling.
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
     );
-    key.addColorStop(0, "rgba(255, 238, 210, 1)");
-    key.addColorStop(0.35, "rgba(214, 170, 114, 0.5)");
-    key.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = key;
-    ctx.fillRect(0, 0, width, height);
+  }
 
-    // Weaker fill behind left, so the shadow side is not dead.
-    const fill = ctx.createRadialGradient(
-      width * 0.15, height * 0.4, 0,
-      width * 0.15, height * 0.4, width * 0.26
-    );
-    fill.addColorStop(0, "rgba(176, 158, 136, 0.5)");
-    fill.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = fill;
-    ctx.fillRect(0, 0, width, height);
+  void main() {
+    vec2 centred = vUv * 2.0 - 1.0;
+    float r = length(centred);
 
-    // Gold bounce low down, which shows along the foot of the cup.
-    const bounce = ctx.createRadialGradient(
-      width * 0.42, height * 0.88, 0,
-      width * 0.42, height * 0.88, width * 0.3
-    );
-    bounce.addColorStop(0, "rgba(200, 161, 101, 0.4)");
-    bounce.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = bounce;
-    ctx.fillRect(0, 0, width, height);
+    // Slow rotation, so the crema drifts rather than scrolls.
+    float angle = uTime * 0.06;
+    mat2 rot = mat2(cos(angle), -sin(angle), sin(angle), cos(angle));
+    vec2 swirl = rot * centred;
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.mapping = THREE.EquirectangularReflectionMapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
+    float marble = noise(swirl * 3.2 + uTime * 0.05);
+    marble += noise(swirl * 7.4 - uTime * 0.03) * 0.5;
+    marble /= 1.5;
 
-    const pmrem = new THREE.PMREMGenerator(gl);
-    pmrem.compileEquirectangularShader();
-    const target = pmrem.fromEquirectangular(texture);
+    vec3 color = mix(uDeep, uCrema, smoothstep(0.42, 0.95, marble) * 0.32);
 
-    // three.js scenes are imperative, mutable objects by design — assigning to
-    // them is how the library works, not React state being mutated.
-    // eslint-disable-next-line react-hooks/immutability
-    scene.environment = target.texture;
+    // Crema ring: the coffee is always slightly paler where it meets the wall.
+    float ring = smoothstep(0.66, 0.99, r);
+    color = mix(color, uCrema, ring * 0.55);
 
-    return () => {
-      scene.environment = null;
-      target.dispose();
-      pmrem.dispose();
-      texture.dispose();
-    };
-  }, [gl, scene]);
+    // The key light's reflection, drifting with the pointer.
+    vec2 glint = centred - vec2(0.26 + uPointer.x * 0.2, 0.3 + uPointer.y * 0.14);
+    float spec = exp(-dot(glint, glint) * 42.0);
+    color += uGold * spec * 0.42;
 
-  return null;
-}
+    // A second, broader sheen across the whole surface. Kept low: a wide
+    // white hotspot on the liquid is the single fastest way to make a
+    // procedural cup look like a render rather than a photograph.
+    vec2 broad = centred - vec2(-0.18, -0.26);
+    float sheen = exp(-dot(broad, broad) * 2.6);
+    color += uGold * sheen * 0.06;
 
-/**
- * Contact shadow drawn as a radial-gradient texture.
- *
- * drei's <ContactShadows> renders an opaque plane on an alpha canvas, which
- * shows up as a grey disc instead of a shadow.
- */
-function ShadowDisc() {
-  const texture = useMemo(() => {
-    const size = 256;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
+    // Soft edge so the disc never shows a hard rim against the ceramic.
+    float alpha = 1.0 - smoothstep(0.985, 1.0, r);
 
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      g.addColorStop(0, "rgba(0,0,0,0.6)");
-      g.addColorStop(0.42, "rgba(0,0,0,0.3)");
-      g.addColorStop(0.75, "rgba(0,0,0,0.07)");
-      g.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
+    gl_FragColor = vec4(color, alpha);
+    #include <colorspace_fragment>
+  }
+`;
+
+function LiquidSurface({ pointer }: { pointer: React.RefObject<THREE.Vector2> }) {
+  const material = useRef<THREE.ShaderMaterial>(null);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uDeep: { value: new THREE.Color(LIQUID_DEEP) },
+      uCrema: { value: new THREE.Color(CREMA) },
+      uGold: { value: new THREE.Color(GOLD) },
+      uPointer: { value: new THREE.Vector2() },
+    }),
+    []
+  );
+
+  useFrame((_, delta) => {
+    const mat = material.current;
+    if (!mat) return;
+    mat.uniforms.uTime.value += delta;
+    if (pointer.current) {
+      mat.uniforms.uPointer.value.lerp(pointer.current, 0.03);
     }
-
-    const map = new THREE.CanvasTexture(canvas);
-    map.colorSpace = THREE.SRGBColorSpace;
-    return map;
-  }, []);
+  });
 
   return (
-    <mesh position={[1.25, -0.55, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[3.2, 2.05, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <meshBasicMaterial map={texture} transparent depthWrite={false} opacity={0.9} />
+    <mesh position={[0, 0.745, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+      <circleGeometry args={[0.7, 72]} />
+      <shaderMaterial
+        ref={material}
+        vertexShader={LIQUID_VERTEX}
+        fragmentShader={LIQUID_FRAGMENT}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+      />
     </mesh>
   );
 }
 
-/**
- * Steam as soft sprites rather than geometry. Tube geometry reads as wire
- * however thin you make it; overlapping additive puffs read as vapour.
- */
-function Steam() {
-  const dot = useSoftDot();
-  const group = useRef<THREE.Group>(null);
+/* --------------------------------------------------------------------------
+   Steam
+   --------------------------------------------------------------------------
+   Three camera-facing planes with a noise shader. Billboarded in the vertex
+   stage rather than with a Sprite, because a sprite cannot be given a custom
+   shader without losing its billboarding.
+   -------------------------------------------------------------------------- */
 
-  const puffs = useMemo(() => {
-    const random = seeded(20260922);
-    return Array.from({ length: 12 }, (_, i) => ({
-      offset: i / 12,
-      x: (random() - 0.5) * 0.46,
-      drift: (random() - 0.5) * 0.42,
-      speed: 0.09 + random() * 0.04,
-      scale: 0.2 + random() * 0.18,
-    }));
-  }, []);
+const STEAM_VERTEX = /* glsl */ `
+  uniform float uTime;
+  uniform float uPhase;
+  varying vec2 vUv;
 
-  useFrame((state) => {
-    if (!group.current) return;
-    const t = state.clock.elapsedTime;
+  void main() {
+    vUv = uv;
 
-    group.current.children.forEach((child, i) => {
-      const puff = puffs[i];
-      const sprite = child as THREE.Sprite;
-      const cycle = (t * puff.speed + puff.offset) % 1;
+    vec3 pos = position;
+    // A gentle lateral sway, stronger further up the plume.
+    float lift = uv.y;
+    pos.x += sin(uTime * 0.6 + uPhase + lift * 3.0) * 0.12 * lift;
 
-      sprite.position.set(
-        puff.x + puff.drift * cycle * 0.7 + Math.sin(t * 0.55 + i) * 0.03,
-        0.79 + cycle * 0.46,
-        0.02
-      );
+    // Billboard: take the instance position from the model matrix, then
+    // rebuild the offset in view space so the plane always faces the camera.
+    vec4 centre = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
+    vec4 mvPosition = centre + vec4(pos.x, pos.y, 0.0, 0.0);
 
-      const alpha = Math.sin(cycle * Math.PI) ** 1.7;
-      sprite.material.opacity = alpha * 0.095;
-      const scale = puff.scale * (0.5 + cycle);
-      sprite.scale.set(scale, scale, scale);
-    });
+    gl_Position = projectionMatrix * mvPosition;
+  }
+`;
+
+const STEAM_FRAGMENT = /* glsl */ `
+  precision highp float;
+
+  uniform float uTime;
+  uniform float uPhase;
+  uniform vec3 uColor;
+  uniform float uOpacity;
+
+  varying vec2 vUv;
+
+  float hash(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+  }
+
+  float noise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 4; i++) {
+      v += a * noise(p);
+      p *= 2.02;
+      a *= 0.5;
+    }
+    return v;
+  }
+
+  void main() {
+    // Scroll the noise field downward so the plume appears to rise.
+    vec2 p = vec2(vUv.x * 2.4, vUv.y * 1.6 - uTime * 0.16 + uPhase);
+    float n = fbm(p);
+
+    // Narrow at the spout, wide at the top.
+    float width = mix(0.36, 0.95, vUv.y);
+    float column = 1.0 - smoothstep(0.0, width, abs(vUv.x - 0.5) * 2.0);
+
+    // Fade in off the surface and out at the top.
+    float rise = smoothstep(0.0, 0.26, vUv.y) * (1.0 - smoothstep(0.3, 0.92, vUv.y));
+
+    float alpha = column * rise * smoothstep(0.38, 0.86, n) * uOpacity;
+
+    gl_FragColor = vec4(uColor, alpha);
+    #include <colorspace_fragment>
+  }
+`;
+
+function SteamPlume({
+  offset,
+  phase,
+  scale,
+  opacity,
+}: {
+  offset: [number, number, number];
+  phase: number;
+  scale: [number, number];
+  opacity: number;
+}) {
+  const material = useRef<THREE.ShaderMaterial>(null);
+
+  const uniforms = useMemo(
+    () => ({
+      uTime: { value: 0 },
+      uPhase: { value: phase },
+      uColor: { value: new THREE.Color(CREMA) },
+      uOpacity: { value: opacity },
+    }),
+    [phase, opacity]
+  );
+
+  useFrame((_, delta) => {
+    if (material.current) material.current.uniforms.uTime.value += delta;
   });
 
   return (
-    <group ref={group}>
-      {puffs.map((_, i) => (
-        <sprite key={i}>
-          <spriteMaterial
-            map={dot}
-            color="#e4d2b4"
-            transparent
-            opacity={0}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </sprite>
-      ))}
-    </group>
+    <mesh position={offset} renderOrder={2}>
+      <planeGeometry args={[scale[0], scale[1], 1, 24]} />
+      <shaderMaterial
+        ref={material}
+        vertexShader={STEAM_VERTEX}
+        fragmentShader={STEAM_FRAGMENT}
+        uniforms={uniforms}
+        transparent
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
   );
 }
 
-/** Slow gold motes drifting around the cup, which give the scene depth. */
-function Motes() {
-  const dot = useSoftDot();
-  const group = useRef<THREE.Group>(null);
+/* --------------------------------------------------------------------------
+   Floating beans
+   --------------------------------------------------------------------------
+   One InstancedMesh: a single draw call for the whole swarm. Beans further
+   from the camera are scaled down and dimmed, which stands in for depth of
+   field — a real DOF pass means a full post-processing chain, and paying
+   three render targets for a background flourish is not a good trade on a
+   café homepage.
+   -------------------------------------------------------------------------- */
 
-  const motes = useMemo(() => {
-    const random = seeded(77771);
-    return Array.from({ length: 20 }, () => ({
-      base: new THREE.Vector3(
-        (random() - 0.5) * 7,
-        (random() - 0.5) * 4.2,
-        -2.2 + random() * 3.4
+type Bean = {
+  position: THREE.Vector3;
+  rotation: THREE.Euler;
+  spin: THREE.Vector3;
+  drift: number;
+  phase: number;
+  scale: number;
+};
+
+function makeBeans(count: number, seed: number): Bean[] {
+  // Deterministic: Math.random() during render would give a different swarm
+  // on the server and the client, and a different one on every re-render.
+  let state = seed >>> 0;
+  const random = () => {
+    state = (state * 1664525 + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+
+  return Array.from({ length: count }, () => {
+    const depth = -3.4 + random() * 4.2;
+    // Further back = smaller and slower, which reads as distance.
+    const distance = THREE.MathUtils.mapLinear(depth, -3.4, 0.8, 0.45, 1.05);
+
+    return {
+      position: new THREE.Vector3(
+        (random() - 0.5) * 7.2,
+        -0.8 + random() * 3.4,
+        depth
       ),
-      speed: 0.05 + random() * 0.09,
+      rotation: new THREE.Euler(
+        random() * Math.PI,
+        random() * Math.PI,
+        random() * Math.PI
+      ),
+      spin: new THREE.Vector3(
+        (random() - 0.5) * 0.22,
+        (random() - 0.5) * 0.3,
+        (random() - 0.5) * 0.18
+      ),
+      drift: 0.05 + random() * 0.12,
       phase: random() * Math.PI * 2,
-      scale: 0.05 + random() * 0.13,
-      alpha: 0.1 + random() * 0.26,
-    }));
-  }, []);
+      scale: (0.032 + random() * 0.03) * distance,
+    };
+  });
+}
+
+function Beans({ count }: { count: number }) {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const beans = useMemo(() => makeBeans(count, 20260922), [count]);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
 
   useFrame((state) => {
-    if (!group.current) return;
+    const instanced = mesh.current;
+    if (!instanced) return;
+
     const t = state.clock.elapsedTime;
 
-    group.current.children.forEach((child, i) => {
-      const mote = motes[i];
-      const sprite = child as THREE.Sprite;
+    for (let i = 0; i < beans.length; i += 1) {
+      const bean = beans[i];
 
-      sprite.position.set(
-        mote.base.x + Math.sin(t * mote.speed + mote.phase) * 0.5,
-        mote.base.y + Math.cos(t * mote.speed * 0.8 + mote.phase) * 0.35,
-        mote.base.z
+      dummy.position.set(
+        bean.position.x + Math.sin(t * bean.drift + bean.phase) * 0.5,
+        bean.position.y + Math.cos(t * bean.drift * 0.8 + bean.phase) * 0.38,
+        bean.position.z
       );
-      sprite.material.opacity = mote.alpha * (0.55 + Math.sin(t * 0.5 + mote.phase) * 0.45);
-    });
+      dummy.rotation.set(
+        bean.rotation.x + t * bean.spin.x,
+        bean.rotation.y + t * bean.spin.y,
+        bean.rotation.z + t * bean.spin.z
+      );
+      // Squashed on two axes: a sphere reads as a bean only once it is
+      // clearly not a sphere.
+      dummy.scale.set(bean.scale, bean.scale * 0.66, bean.scale * 0.56);
+      dummy.updateMatrix();
+      instanced.setMatrixAt(i, dummy.matrix);
+    }
+
+    instanced.instanceMatrix.needsUpdate = true;
   });
 
   return (
-    <group ref={group}>
-      {motes.map((mote, i) => (
-        <sprite key={i} scale={[mote.scale, mote.scale, mote.scale]}>
-          <spriteMaterial
-            map={dot}
-            color="#c8a165"
-            transparent
-            opacity={0}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-          />
-        </sprite>
-      ))}
-    </group>
+    <instancedMesh ref={mesh} args={[undefined, undefined, count]} frustumCulled={false}>
+      {/* A sphere squashed on two axes reads convincingly as a coffee bean at
+          this size, and costs a fraction of a lathed or imported one. */}
+      <sphereGeometry args={[1, 14, 10]} />
+      <meshStandardMaterial
+        color={LIQUID_DEEP}
+        roughness={0.62}
+        metalness={0.05}
+        emissive={MOCHA}
+        emissiveIntensity={0.08}
+      />
+    </instancedMesh>
   );
 }
 
-/* -------------------------------------------------------------------------- */
-/* The cup                                                                    */
-/* -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   The assembly
+   -------------------------------------------------------------------------- */
 
-function Cup() {
-  const spinner = useRef<THREE.Group>(null);
-  const floater = useRef<THREE.Group>(null);
-  const spin = useRef(0);
-  const { pointer } = useThree();
+function CupGroup({ tier, pointer }: { tier: SceneTier; pointer: React.RefObject<THREE.Vector2> }) {
+  const group = useRef<THREE.Group>(null);
+  const segments = tier === "full" ? 96 : 48;
 
-  const glaze = useGlaze();
+  const cup = useCupGeometry(segments);
+  const saucer = useSaucerGeometry(segments);
 
-  const cupGeometry = useMemo(
-    () => new THREE.LatheGeometry(CUP_PROFILE.map(([x, y]) => new THREE.Vector2(x, y)), 192),
-    []
-  );
-
-  const saucerGeometry = useMemo(
-    () => new THREE.LatheGeometry(SAUCER_PROFILE.map(([x, y]) => new THREE.Vector2(x, y)), 160),
-    []
-  );
-
-  const handleGeometry = useMemo(
-    () => new THREE.TubeGeometry(HANDLE_CURVE, 96, 0.046, 20, false),
-    []
-  );
+  // Lathe geometries are created here rather than by a hook inside a
+  // component that might unmount independently, so disposal is unambiguous.
+  useEffect(() => {
+    return () => {
+      cup.dispose();
+      saucer.dispose();
+    };
+  }, [cup, saucer]);
 
   useFrame((state, delta) => {
-    if (!spinner.current || !floater.current) return;
+    const node = group.current;
+    if (!node) return;
 
-    // A steady, slow turn, with a restrained parallax toward the cursor. Both
-    // are eased so nothing ever snaps.
-    spin.current += delta * ROTATION_SPEED;
-    const targetY = spin.current + pointer.x * 0.14;
-    const targetX = -pointer.y * 0.035;
+    // A slow, constant turn, plus a small tilt toward the pointer. Both are
+    // eased, so nothing snaps when the mouse jumps across the viewport.
+    node.rotation.y += delta * 0.085;
 
-    spinner.current.rotation.y = THREE.MathUtils.lerp(spinner.current.rotation.y, targetY, 0.045);
-    spinner.current.rotation.x = THREE.MathUtils.lerp(spinner.current.rotation.x, targetX, 0.03);
+    const target = pointer.current;
+    if (target) {
+      const tiltX = THREE.MathUtils.clamp(-target.y * 0.16, -0.2, 0.2);
+      const tiltZ = THREE.MathUtils.clamp(target.x * 0.1, -0.14, 0.14);
+      node.rotation.x = THREE.MathUtils.damp(node.rotation.x, tiltX, 2.2, delta);
+      node.rotation.z = THREE.MathUtils.damp(node.rotation.z, tiltZ, 2.2, delta);
+      node.position.x = THREE.MathUtils.damp(
+        node.position.x,
+        1.42 + target.x * 0.1,
+        2.5,
+        delta
+      );
+    }
 
-    // A float of a few pixels, so the object never reads as frozen.
-    floater.current.position.y = Math.sin(state.clock.elapsedTime * 0.55) * 0.012;
+    // A barely-there breathing motion. Without it the object looks pinned.
+    node.position.y =
+      -0.62 + Math.sin(state.clock.elapsedTime * 0.5) * 0.026;
   });
 
   return (
-    <group ref={floater} position={[1.25, -0.5, 0]} scale={1.16}>
-      <group ref={spinner}>
-        {/* saucer */}
-        <mesh geometry={saucerGeometry}>
-          <meshPhysicalMaterial {...CERAMIC} color="#f4efe4" side={THREE.DoubleSide} />
-        </mesh>
+    <group ref={group} position={[1.42, -0.62, 0]} scale={0.95}>
+      {/* Saucer */}
+      <mesh geometry={saucer} position={[0, -0.02, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color={CERAMIC_SHADOW}
+          roughness={0.38}
+          metalness={0}
+          clearcoat={0.85}
+          clearcoatRoughness={0.22}
+          sheen={0.35}
+          sheenColor={CERAMIC_SHADOW}
+        />
+      </mesh>
 
-        {/* cup body, wordmark fired into the glaze */}
-        <mesh geometry={cupGeometry} position={[0, 0.062, 0]}>
-          <meshPhysicalMaterial {...CERAMIC} map={glaze} side={THREE.DoubleSide} />
-        </mesh>
+      {/* Cup */}
+      <mesh geometry={cup} position={[0, 0.06, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial
+          color={CERAMIC}
+          roughness={0.32}
+          metalness={0}
+          clearcoat={0.9}
+          clearcoatRoughness={0.18}
+          sheen={0.4}
+          sheenColor={CERAMIC_SHADOW}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
 
-        {/* handle */}
-        <mesh geometry={handleGeometry} position={[0, 0.062, 0]}>
-          <meshPhysicalMaterial {...CERAMIC} color="#f8f3ea" />
-        </mesh>
+      {/* Handle */}
+      <mesh position={[0.72, 0.46, 0]} rotation={[0, 0, -0.22]} castShadow>
+        <torusGeometry args={[0.32, 0.055, 16, tier === "full" ? 56 : 30, Math.PI * 1.25]} />
+        <meshPhysicalMaterial
+          color={CERAMIC}
+          roughness={0.32}
+          metalness={0}
+          clearcoat={0.85}
+          clearcoatRoughness={0.2}
+        />
+      </mesh>
 
-        {/* coffee: dark, glossy, sunk just below the rim */}
-        <mesh position={[0, 0.79, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.634, 128]} />
-          <meshPhysicalMaterial
-            color="#2b1509"
-            roughness={0.1}
-            metalness={0.18}
-            clearcoat={1}
-            clearcoatRoughness={0.05}
-            envMapIntensity={1.9}
-          />
-        </mesh>
+      {/* A single brass line around the rim — the one piece of jewellery. */}
+      <mesh position={[0, 0.826, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.756, 0.792, segments]} />
+        <meshStandardMaterial
+          color={GOLD}
+          roughness={0.26}
+          metalness={0.95}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
 
-        {/* crema, lighter where it meets the ceramic */}
-        <mesh position={[0, 0.792, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[0.5, 0.634, 128]} />
-          <meshBasicMaterial color="#8a4f1d" transparent opacity={0.42} depthWrite={false} />
-        </mesh>
+      <LiquidSurface pointer={pointer} />
 
-        <Steam />
-      </group>
+      {/* Steam. Three plumes on different phases so it never pulses. */}
+      <SteamPlume offset={[-0.1, 1.62, 0.06]} phase={0} scale={[0.95, 1.7]} opacity={0.95} />
+      <SteamPlume offset={[0.14, 1.78, -0.04]} phase={2.1} scale={[0.75, 2.0]} opacity={0.7} />
+      {tier === "full" ? (
+        <SteamPlume offset={[0.02, 1.5, 0.14]} phase={4.3} scale={[1.15, 1.5]} opacity={0.5} />
+      ) : null}
     </group>
   );
 }
 
-function Lighting() {
-  const rim = useRef<THREE.PointLight>(null);
+/**
+ * Tracks the pointer in normalised space outside React state.
+ *
+ * `state.pointer` from R3F only updates while the cursor is over the canvas.
+ * The canvas here sits behind the headline and the CTAs, so half the hero's
+ * pointer movement would never reach it — this listens on the window instead.
+ */
+function usePointerTracking() {
+  const pointer = useRef(new THREE.Vector2(0, 0));
 
-  useFrame((state) => {
-    if (rim.current) {
-      rim.current.intensity = 30 + Math.sin(state.clock.elapsedTime * 0.5) * 4;
-    }
-  });
+  useEffect(() => {
+    if (window.matchMedia("(pointer: coarse)").matches) return;
 
+    const onMove = (event: PointerEvent) => {
+      pointer.current.set(
+        (event.clientX / window.innerWidth) * 2 - 1,
+        -((event.clientY / window.innerHeight) * 2 - 1)
+      );
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
+
+  return pointer;
+}
+
+/** Warm studio lighting, built from light cards rather than an HDR file. */
+function Studio({ tier }: { tier: SceneTier }) {
   return (
     <>
-      <ambientLight intensity={0.1} color="#8a6a45" />
+      <ambientLight intensity={0.22} color={MOCHA} />
 
-      {/* Key: a warm softbox, high and to the right. */}
-      <directionalLight position={[3.4, 5.2, 2.8]} intensity={2.6} color="#ffe6c4" />
-
-      {/* Gold rim from behind left — this is what draws the ceramic edge. */}
-      <pointLight ref={rim} position={[-2.6, 1.9, -2.0]} intensity={30} color="#d9ab68" distance={13} decay={2} />
-
-      {/* Low front fill, so the near side does not flatten out. */}
-      <pointLight position={[-1.6, 1.0, 3.2]} intensity={11} color="#b3a394" distance={12} decay={2} />
-
-      {/* Bounce from the table, lifting the saucer out of the cup's shadow. */}
-      <pointLight position={[0.9, 0.15, 1.2]} intensity={8} color="#e8cfa8" distance={5} decay={2} />
-
-      {/* Specular glint across the coffee surface. */}
-      <spotLight
-        position={[1.6, 4.0, 1.4]}
-        angle={0.45}
-        penumbra={1}
-        intensity={30}
-        color="#fff1d8"
-        distance={15}
-        decay={2}
+      {/* Key: a warm lamp, high and to the right, casting the shadow. */}
+      <directionalLight
+        position={[3.4, 5.2, 2.6]}
+        intensity={1.45}
+        color="#ffdcae"
+        castShadow={tier === "full"}
+        shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0006}
       />
+
+      {/* Rim: brass, from behind and low, to separate the cup from the page. */}
+      <directionalLight position={[-3.4, 1.8, -3.2]} intensity={3.4} color={GOLD} />
+
+      {/* Fill: a cool sage bounce, very low, so the shadow side is not dead. */}
+      <directionalLight position={[-2.2, -1.4, 2.4]} intensity={0.4} color="#4a5a48" />
+
+      <Environment resolution={tier === "full" ? 256 : 128} frames={1}>
+        <Lightformer
+          form="rect"
+          intensity={3.2}
+          color="#ffdcae"
+          position={[2.6, 3.4, 2]}
+          scale={[5, 5, 1]}
+          target={[0, 0, 0]}
+        />
+        <Lightformer
+          form="rect"
+          intensity={2.2}
+          color={GOLD}
+          position={[-3.4, 1.2, -2.6]}
+          scale={[4, 6, 1]}
+          target={[0, 0, 0]}
+        />
+        <Lightformer
+          form="circle"
+          intensity={0.9}
+          color={CREMA}
+          position={[0, -2.4, 1.6]}
+          scale={[6, 6, 1]}
+          target={[0, 0, 0]}
+        />
+      </Environment>
     </>
   );
 }
 
-export default function CupScene() {
+/**
+ * Pauses the render loop whenever the canvas is off-screen or the tab is in
+ * the background.
+ *
+ * This is the single most valuable thing in the file for battery life: a
+ * hero canvas that keeps rendering while the visitor reads the menu three
+ * screens down is pure waste, and it is invisible in testing because
+ * everything still looks right.
+ */
+function RenderGate({ active }: { active: boolean }) {
+  const setFrameloop = useThree((state) => state.setFrameloop);
+  const gl = useThree((state) => state.gl);
+
+  useEffect(() => {
+    setFrameloop(active ? "always" : "never");
+  }, [active, setFrameloop]);
+
+  // Release the WebGL context properly when this scene goes away. Browsers
+  // cap live contexts per page; leaking one is how the canvas comes back
+  // blank after a few route changes.
+  useEffect(() => {
+    return () => {
+      gl.setAnimationLoop(null);
+      gl.dispose();
+    };
+  }, [gl]);
+
+  return null;
+}
+
+export default function CupScene({ tier }: { tier: SceneTier }) {
+  const pointer = usePointerTracking();
+  const hostRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(true);
+
+  // On-screen and tab-visible are two different questions; the scene needs
+  // both to be true before it is worth rendering a frame.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    let onScreen = true;
+    let tabVisible = document.visibilityState === "visible";
+    const sync = () => setActive(onScreen && tabVisible);
+
+    const observer =
+      typeof IntersectionObserver !== "undefined"
+        ? new IntersectionObserver(
+            ([entry]) => {
+              onScreen = entry.isIntersecting;
+              sync();
+            },
+            { rootMargin: "80px" }
+          )
+        : null;
+
+    observer?.observe(host);
+
+    const onVisibility = () => {
+      tabVisible = document.visibilityState === "visible";
+      sync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, []);
+
+  const full = tier === "full";
+
   return (
-    <Canvas
-      // Capped DPR: past ~1.75 the extra pixels cost frames and buy nothing.
-      dpr={[1, 1.75]}
-      gl={{
-        antialias: true,
-        alpha: true,
-        powerPreference: "high-performance",
-        toneMapping: THREE.ACESFilmicToneMapping,
-        toneMappingExposure: 1.22,
-      }}
-      // Slightly elevated three-quarter angle: shape, handle, wordmark and a
-      // little of the coffee surface all read at once.
-      camera={{ position: [0, 2.3, 8.4], fov: 28 }}
-      style={{ background: "transparent" }}
-    >
-      <Suspense fallback={null}>
-        <StudioEnvironment />
-        <Lighting />
-        <ShadowDisc />
-        <Motes />
-        <Cup />
-      </Suspense>
-    </Canvas>
+    <div ref={hostRef} className="absolute inset-0">
+      <Canvas
+        // Capped at 2 as a hard ceiling, and lower on the lite tier. A 3×
+        // device pixel ratio quadruples the fragment cost for a difference
+        // nobody can see on a soft-lit ceramic object.
+        dpr={[1, full ? 2 : 1.4]}
+        gl={{
+          antialias: full,
+          alpha: true,
+          powerPreference: "high-performance",
+          // Guards against a lost context taking the page down with it.
+          failIfMajorPerformanceCaveat: false,
+        }}
+        shadows={full}
+        camera={{ position: [0, 1.65, 5.9], fov: 36, near: 0.1, far: 40 }}
+        style={{ background: "transparent" }}
+        onCreated={({ gl }) => {
+          gl.toneMapping = THREE.ACESFilmicToneMapping;
+          gl.toneMappingExposure = 0.98;
+        }}
+      >
+        <Suspense fallback={null}>
+          <RenderGate active={active} />
+          <Studio tier={tier} />
+          <CupGroup tier={tier} pointer={pointer} />
+          <Beans count={full ? 22 : 10} />
+
+          {full ? (
+            <ContactShadows
+              position={[1.42, -1.44, 0]}
+              opacity={0.55}
+              scale={7}
+              blur={2.8}
+              far={3}
+              resolution={512}
+              color="#0c0704"
+              frames={1}
+            />
+          ) : null}
+        </Suspense>
+      </Canvas>
+    </div>
   );
 }

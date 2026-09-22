@@ -1,32 +1,65 @@
 "use client";
 
-import { motion, useReducedMotion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 import { cn } from "@/lib/cn";
 
 type Props = {
-  items: string[];
+  items: readonly string[];
   /** Seconds for one full pass. Higher is slower. */
   duration?: number;
   className?: string;
-  tone?: "dark" | "linen";
+  tone?: "dark" | "light";
+  /** Reverses direction — two stacked marquees running opposite read richer. */
+  reverse?: boolean;
 };
 
 /**
- * A slow band of repeating phrases between sections. Kept to one line, at low
- * contrast, so it reads as texture rather than as a headline competing for
- * attention.
+ * A slow band of repeating phrases between sections, set at low contrast so
+ * it reads as texture rather than as a headline competing for attention.
+ *
+ * Driven by a CSS animation on a duplicated track rather than by JavaScript:
+ * the browser can run it off the main thread, it costs nothing while
+ * off-screen, and `prefers-reduced-motion` stops it with a single rule
+ * instead of a React branch.
+ *
+ * It pauses itself when scrolled out of view. A marquee animating below the
+ * fold is pure battery drain on a laptop.
  */
-export function Marquee({ items, duration = 48, className, tone = "dark" }: Props) {
-  const reduced = useReducedMotion();
-  // Two copies so the loop is seamless at -50%.
+export function Marquee({
+  items,
+  duration = 52,
+  className,
+  tone = "dark",
+  reverse = false,
+}: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { rootMargin: "120px" }
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // Two copies so the -50% loop is seamless.
   const track = [...items, ...items];
+  const dark = tone === "dark";
 
   return (
     <div
+      ref={ref}
       className={cn(
         "relative overflow-hidden border-y py-6",
-        tone === "dark" ? "border-hairline bg-roast/40" : "border-hairline-ink bg-linen-deep/50",
+        dark
+          ? "border-hairline bg-roast/45"
+          : "border-hairline-ink bg-cream-dim/60",
         className
       )}
       aria-hidden
@@ -34,28 +67,34 @@ export function Marquee({ items, duration = 48, className, tone = "dark" }: Prop
       {/* Feathered edges, so phrases fade out rather than getting clipped. */}
       <div
         className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r to-transparent",
-          tone === "dark" ? "from-espresso" : "from-linen"
+          "pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r to-transparent md:w-32",
+          dark ? "from-espresso" : "from-cream"
         )}
       />
       <div
         className={cn(
-          "pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l to-transparent",
-          tone === "dark" ? "from-espresso" : "from-linen"
+          "pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l to-transparent md:w-32",
+          dark ? "from-espresso" : "from-cream"
         )}
       />
 
-      <motion.div
-        className="flex w-max items-center gap-10 whitespace-nowrap"
-        animate={reduced ? {} : { x: ["0%", "-50%"] }}
-        transition={reduced ? {} : { duration, repeat: Infinity, ease: "linear" }}
+      <div
+        className="flex w-max items-center gap-10 whitespace-nowrap will-change-transform"
+        style={{
+          animationName: "marquee-run",
+          animationDuration: `${duration}s`,
+          animationTimingFunction: "linear",
+          animationIterationCount: "infinite",
+          animationDirection: reverse ? "reverse" : "normal",
+          animationPlayState: visible ? "running" : "paused",
+        }}
       >
         {track.map((item, index) => (
-          <span key={index} className="flex items-center gap-10">
+          <span key={`${item}-${index}`} className="flex items-center gap-10">
             <span
               className={cn(
-                "font-sans text-[0.6875rem] font-medium uppercase tracking-[0.28em]",
-                tone === "dark" ? "text-cream-muted/55" : "text-ink-muted/60"
+                "font-sans text-[0.6875rem] font-semibold uppercase tracking-[0.3em]",
+                dark ? "text-latte/60" : "text-mocha/70"
               )}
             >
               {item}
@@ -63,12 +102,22 @@ export function Marquee({ items, duration = 48, className, tone = "dark" }: Prop
             <span
               className={cn(
                 "block h-1 w-1 rotate-45",
-                tone === "dark" ? "bg-gold/45" : "bg-gold-dim/45"
+                dark ? "bg-gold/50" : "bg-gold-ink/45"
               )}
             />
           </span>
         ))}
-      </motion.div>
+      </div>
+
+      <style>{`
+        @keyframes marquee-run {
+          from { transform: translate3d(0, 0, 0); }
+          to   { transform: translate3d(-50%, 0, 0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="marquee-run"] { animation: none !important; }
+        }
+      `}</style>
     </div>
   );
 }

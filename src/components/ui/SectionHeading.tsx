@@ -1,14 +1,18 @@
 import { cn } from "@/lib/cn";
 import { Reveal } from "./Reveal";
-import { TextReveal } from "./TextReveal";
+import { SplitText } from "./SplitText";
+import { Eyebrow } from "./Ornament";
 
 type Props = {
   eyebrow?: string;
+  /** Newlines become visual lines. Wrap a word in _underscores_ to italicise. */
   heading: string;
   standfirst?: string;
-  tone?: "dark" | "linen";
+  tone?: "dark" | "light";
   align?: "left" | "center";
   className?: string;
+  /** Adds the travelling brass sheen. Reserved for one heading per page. */
+  shimmer?: boolean;
 };
 
 export function SectionHeading({
@@ -18,12 +22,13 @@ export function SectionHeading({
   tone = "dark",
   align = "left",
   className,
+  shimmer = false,
 }: Props) {
-  const muted = tone === "dark" ? "text-cream-muted" : "text-ink-muted";
-  const strong = tone === "dark" ? "text-cream" : "text-ink";
+  const muted = tone === "dark" ? "text-latte" : "text-mocha";
+  const strong = tone === "dark" ? "text-cream" : "text-espresso";
 
   return (
-    <Reveal
+    <div
       className={cn(
         "flex flex-col",
         align === "center" ? "items-center text-center" : "items-start",
@@ -31,22 +36,36 @@ export function SectionHeading({
       )}
     >
       {eyebrow ? (
-        <span className={cn("eyebrow mb-5 flex items-center gap-3", "text-gold")}>
-          <span className="rule" aria-hidden />
-          {eyebrow}
-        </span>
+        <Reveal>
+          <Eyebrow tone={tone} className="mb-7">
+            {eyebrow}
+          </Eyebrow>
+        </Reveal>
       ) : null}
 
-      <TextReveal
+      <SplitText
         as="h2"
         lines={heading.split("\n")}
-        className={cn("display text-[clamp(2.25rem,4.6vw,3.6rem)]", strong)}
-        lineClassName="pb-[0.06em]"
+        className={cn(
+          "display text-[clamp(2rem,4.6vw,3.75rem)]",
+          shimmer ? "brass-shimmer" : strong
+        )}
+        lineClassName="pb-[0.14em] -mb-[0.1em]"
       />
 
       {standfirst ? (
-        <p className={cn("mt-6 max-w-xl text-[1.0625rem] leading-[1.75]", muted)}>{standfirst}</p>
+        <Reveal delay={0.12}>
+          <p
+            className={cn(
+              "mt-7 max-w-xl text-[var(--step-1)] leading-[1.85]",
+              align === "center" && "mx-auto",
+              muted
+            )}
+          >
+            {standfirst}
+          </p>
+        </Reveal>
       ) : null}
-    </Reveal>
+    </div>
   );
 }
