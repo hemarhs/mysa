@@ -17,5 +17,10 @@ tsconfig.tsbuildinfo
 .env.*.local
 
 # --- local scratch, not part of the project ---
+# Transfer archives, throwaway probes and the screenshot folder the
+# desktop app writes into. None of it is the project; all of it used to
+# end up in commits.
 *.tar.gz
 diag.mjs
+.writetest
+Claude outputs/
