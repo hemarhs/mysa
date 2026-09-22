@@ -4,10 +4,15 @@ import { SESSION_COOKIE, verifySession } from "@/lib/auth/jwt";
 
 /**
  * Guards the admin area at the edge, before any page or route handler runs.
- * Pages and actions re-check the session server-side as well — middleware is
- * the first gate, not the only one.
+ * Pages and actions re-check the session server-side as well — this is the
+ * first gate, not the only one.
+ *
+ * Named `proxy`, in `src/proxy.ts`. Next 16 deprecated the `middleware` file
+ * convention and renamed it; the old name still works but prints a warning on
+ * every build, and shipping a build that warns trains everyone to stop reading
+ * build output. Behaviour is identical.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const token = request.cookies.get(SESSION_COOKIE)?.value;
   const session = await verifySession(token);

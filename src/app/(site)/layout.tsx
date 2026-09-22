@@ -3,14 +3,13 @@ import { Footer } from "@/components/site/Footer";
 import { ReservationProvider } from "@/components/reserve/ReservationProvider";
 import { ScrollProgress } from "@/components/site/ScrollProgress";
 import { Preloader } from "@/components/chrome/Preloader";
-import { CustomCursor } from "@/components/chrome/CustomCursor";
 import { SmoothScroll } from "@/components/chrome/SmoothScroll";
 import { PageTransition } from "@/components/chrome/PageTransition";
 
 /**
  * Chrome for the public-facing site. The admin panel deliberately uses its
- * own, much quieter shell — no preloader, no custom cursor, no smooth-scroll
- * hijack, because it is a tool people use all day.
+ * own, much quieter shell — no preloader and no smooth-scroll hijack, because
+ * it is a tool people use all day.
  *
  * Order matters here: SmoothScroll must wrap everything that scrolls, and
  * the preloader sits above all of it so it can cover the page while the
@@ -21,7 +20,6 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
     <ReservationProvider>
       <SmoothScroll>
         <Preloader />
-        <CustomCursor />
         <ScrollProgress />
 
         <a

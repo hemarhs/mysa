@@ -14,28 +14,28 @@ import { ReserveButton } from "@/components/reserve/ReserveButton";
 export function Header() {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const [open, setOpen] = useState(false);
 
   /**
-   * Two pieces of state from one scroll listener: whether we have left the
-   * top of the page (which drops the glass in), and whether the visitor is
-   * scrolling down (which tucks the bar away so the photography has the
-   * whole screen). A 6px dead zone stops trackpad jitter flipping it.
+   * One piece of state from one scroll listener: whether we have left the top
+   * of the page, which drops the glass background in.
+   *
+   * The header used to tuck itself away on downward scroll. It had to go. The
+   * menu and gallery pages both carry a sticky category rail pinned to
+   * `top-[4.25rem]` — the header's own height — so when the header slid up it
+   * left a transparent 4.25rem band with page content scrolling through it,
+   * directly above the rail. Auto-hiding chrome also fights the reader: the
+   * bar reappears the moment you nudge upward, which reads as the header
+   * "coming down" at you.
+   *
+   * A header that is simply always there is calmer, and it makes the sticky
+   * offsets below it exact instead of conditional.
    */
   useEffect(() => {
-    let lastY = window.scrollY;
     let frame = 0;
 
     const read = () => {
-      const y = window.scrollY;
-      setScrolled(y > 24);
-
-      const delta = y - lastY;
-      if (Math.abs(delta) > 6) {
-        setHidden(delta > 0 && y > 220);
-        lastY = y;
-      }
+      setScrolled(window.scrollY > 24);
       frame = 0;
     };
 
@@ -80,17 +80,19 @@ export function Header() {
   return (
     <header
       className={cn(
-        "fixed inset-x-0 top-0 z-[100] transition-[transform,background-color,border-color,backdrop-filter] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        "fixed inset-x-0 top-0 z-[100] transition-[background-color,border-color,backdrop-filter] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
         scrolled || open
-          ? "border-b border-hairline bg-void/88 backdrop-blur-xl backdrop-saturate-150"
-          : "border-b border-transparent bg-transparent",
-        hidden && !open ? "-translate-y-full" : "translate-y-0"
+          ? "border-b border-hairline bg-void/92 backdrop-blur-xl backdrop-saturate-150"
+          : "border-b border-transparent bg-transparent"
       )}
     >
       <div className="container-wide">
         <div
           className={cn(
-            "flex items-center justify-between transition-[height] duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]",
+            // 4.25rem when scrolled is not a free choice: the menu rail and
+            // the gallery filter bar are `sticky top-[4.25rem]`, and the two
+            // numbers have to agree or a strip of page shows between them.
+            "flex items-center justify-between transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
             scrolled ? "h-[4.25rem]" : "h-[5.75rem]"
           )}
         >

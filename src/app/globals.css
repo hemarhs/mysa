@@ -607,28 +607,6 @@ body::before {
 }
 
 /* ==========================================================================
-   Custom cursor
-   --------------------------------------------------------------------------
-   Only ever enabled by the cursor component, and only on a fine pointer with
-   a hover-capable device. The native cursor is hidden by the data attribute
-   so that if the component fails to mount for any reason, the real cursor is
-   still there.
-   ========================================================================== */
-
-html[data-cursor="on"],
-html[data-cursor="on"] * {
-  cursor: none !important;
-}
-
-/* ...except where the real caret carries meaning. */
-html[data-cursor="on"] input,
-html[data-cursor="on"] textarea,
-html[data-cursor="on"] select,
-html[data-cursor="on"] [contenteditable="true"] {
-  cursor: auto !important;
-}
-
-/* ==========================================================================
    Keyframes
    ========================================================================== */
 
