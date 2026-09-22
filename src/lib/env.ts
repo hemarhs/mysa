@@ -33,15 +33,34 @@ function load() {
     );
   }
 
-  const env = parsed.data;
-
-  if (env.STORAGE_PROVIDER === "blob" && env.NODE_ENV === "production" && !env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error(
-      "STORAGE_PROVIDER is 'blob' but BLOB_READ_WRITE_TOKEN is not set. Connect a Blob store in the Vercel dashboard, or set STORAGE_PROVIDER=local."
-    );
-  }
-
-  return env;
+  return parsed.data;
 }
 
 export const env = load();
+
+/**
+ * Is blob storage actually usable?
+ *
+ * This used to be a `throw` inside `load()`, which meant it ran at module
+ * evaluation — and Next evaluates every module while collecting page data
+ * during `next build`, with NODE_ENV set to "production". The result was that
+ * a deploy without a Blob token did not fail at upload time with a clear
+ * message; it failed the *build*:
+ *
+ *     Error: Failed to collect page data for /api/admin/upload
+ *     [cause]: STORAGE_PROVIDER is 'blob' but BLOB_READ_WRITE_TOKEN is not set
+ *
+ * A missing optional integration should never be able to stop a site from
+ * building. The check belongs where the capability is used, so the site
+ * deploys, every public page works, and only the one action that genuinely
+ * needs the token reports that it is missing.
+ */
+export function blobStorageReady(): boolean {
+  return env.STORAGE_PROVIDER !== "blob" || Boolean(env.BLOB_READ_WRITE_TOKEN);
+}
+
+export const BLOB_SETUP_MESSAGE =
+  "Image storage is not configured. Connect a Blob store in the Vercel dashboard " +
+  "(Storage → Create → Blob), which sets BLOB_READ_WRITE_TOKEN automatically, or " +
+  "set STORAGE_PROVIDER=local for local development.";
+

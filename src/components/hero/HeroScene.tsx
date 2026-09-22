@@ -10,10 +10,9 @@ import type { SceneTier } from "@/lib/motion";
    The hero, as an actual three-dimensional scene.
    --------------------------------------------------------------------------
    The photograph is not an <img> sitting behind the type. It is a textured
-   surface inside a WebGL scene, driven by a depth map, with real geometry
-   flying in front of it and behind it.
+   surface inside a WebGL scene, driven by a depth map.
 
-   Three things make it read as space rather than as a picture:
+   Two things make it read as space rather than as a picture:
 
    1. DEPTH PARALLAX. A greyscale depth map accompanies the photograph. In
       the fragment stage the sampling coordinate is displaced by
@@ -33,24 +32,38 @@ import type { SceneTier } from "@/lib/motion";
       the page, and the dark parts *are* the page. This is what removes the
       "photo pasted on top" quality — there is no rectangle left to see.
 
-   3. REAL GEOMETRY IN THE SAME SPACE. The falling beans, the steam and the
-      gold dust are lit, depth-sorted meshes at various z. Some pass in front
-      of the cup, some behind it. They share the camera, so when the pointer
-      moves everything reorganises as one scene.
+   Nothing else is in the frame. An earlier pass added instanced beans, steam
+   plumes and gold dust in front of the cup; they cluttered a photograph that
+   already has its own splash and bed of grounds, and — being the only thing
+   the flat first paint could not show — they were also what made the
+   handover to WebGL visible on reload.
 
    The depth map is generated offline (see scripts/build-hero-depth.py) and
    ships as a 32KB PNG. There is no model to load at runtime.
    ========================================================================== */
 
-const ESPRESSO = "#1c120d";
-const MOCHA = "#6b4531";
-const LATTE = "#d9c2a3";
-const GOLD = "#c9a15b";
-
 const PHOTO_URL = "/images/hero-cup.jpg";
 const DEPTH_URL = "/images/hero-cup-depth.png";
 /** The source photograph is 2:3 portrait. */
 const PHOTO_ASPECT = 1400 / 2100;
+
+/**
+ * The fraction of the viewport width the plate occupies on a wide screen.
+ *
+ * This number is shared with the CSS fallback in HeroStage (`md:w-[64%]`) and
+ * it has to stay shared. When the two disagreed, `object-fit: cover` and the
+ * shader's cover maths cropped the photograph to different rectangles, and the
+ * handover from the flat image to the scene showed the cup visibly jump in
+ * size and position — the "two interfaces colliding" on every reload.
+ *
+ * With one width, both paths compute the same crop and the crossfade is
+ * invisible.
+ */
+const PLATE_WIDTH = 0.64;
+/** Right-aligned: the plate's centre sits this far across the viewport. */
+const PLATE_CENTRE = 1 - PLATE_WIDTH / 2;
+/** Matches `object-position: 58%` vertically on the CSS fallback. */
+const PLATE_FOCUS_Y = -0.028;
 
 /* --------------------------------------------------------------------------
    The depth-parallax surface
@@ -224,6 +237,7 @@ function useHeroTextures() {
 function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>; tier: SceneTier }) {
   const material = useRef<THREE.ShaderMaterial>(null);
   const viewport = useThree((state) => state.viewport);
+  const size = useThree((state) => state.size);
   const textures = useHeroTextures();
 
   const photo = textures?.photo ?? null;
@@ -239,9 +253,11 @@ function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>
       uPhotoAspect: { value: PHOTO_ASPECT },
       // Slides the visible window down the photograph so the cup and the
       // bed of beans are in frame and the empty black above them is not.
-      uFocus: { value: new THREE.Vector2(0.0, -0.11) },
+      uFocus: { value: new THREE.Vector2(0.0, PLATE_FOCUS_Y) },
       uStrength: { value: tier === "full" ? 0.125 : 0.08 },
-      uZoom: { value: 1.02 },
+      // No extra zoom: `cover` against a plane of the same shape as the CSS
+      // box already produces the same crop.
+      uZoom: { value: 1.0 },
     }),
     [photo, depth, tier]
   );
@@ -252,8 +268,11 @@ function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>
 
     mat.uniforms.uTime.value += delta;
     // The shader's `cover` fit needs the *plane's* aspect, not the canvas's.
-    const wideNow = state.viewport.width / state.viewport.height > 1.1;
-    const planeW = state.viewport.width * (wideNow ? 0.68 : 1);
+    // The breakpoint is in CSS pixels so that it matches Tailwind's `md`
+    // exactly — the CSS fallback switches to the narrow layout at the same
+    // width, and a mismatch here would reintroduce the crop jump.
+    const wideNow = state.size.width >= 768;
+    const planeW = state.viewport.width * (wideNow ? PLATE_WIDTH : 1);
     mat.uniforms.uPlaneAspect.value = planeW / state.viewport.height;
 
     const target = pointer.current;
@@ -268,18 +287,17 @@ function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>
   // still visible underneath until the handover.
   if (!photo || !depth) return null;
 
-  /* The plate occupies the right two-thirds on a wide screen and the whole
-     frame on a narrow one — the same composition as the CSS fallback, and
-     the same one the type is laid out against.
+  /* The plate occupies the same rectangle as the CSS fallback: right-aligned,
+     PLATE_WIDTH of the viewport on a wide screen, full width on a narrow one.
 
-     Sizing the plane to the *viewport* instead was the first attempt, and it
-     stretched a 2:3 portrait across a 16:9 frame: `cover` then had to crop to
-     the middle 40% of the photograph, which arrived as an enormous close-up
-     of the rim. The plane has to be roughly the shape of the hole it is
-     filling before `cover` means anything sensible. */
-  const wide = viewport.width / viewport.height > 1.1;
-  const planeWidth = viewport.width * (wide ? 0.68 : 1);
-  const planeX = wide ? viewport.width * 0.16 : 0;
+     Sizing the plane to the whole viewport was the first attempt, and it
+     stretched a 2:3 portrait across a 16:9 frame: `cover` then cropped to the
+     middle 40% of the photograph and arrived as an enormous close-up of the
+     rim. The plane has to be the shape of the hole it is filling before
+     `cover` means anything sensible. */
+  const wide = size.width >= 768;
+  const planeWidth = viewport.width * (wide ? PLATE_WIDTH : 1);
+  const planeX = wide ? viewport.width * (PLATE_CENTRE - 0.5) : 0;
 
   return (
     <mesh position={[planeX, 0, 0]}>
@@ -293,337 +311,6 @@ function DepthPlate({ pointer, tier }: { pointer: React.RefObject<THREE.Vector2>
         depthWrite={false}
       />
     </mesh>
-  );
-}
-
-/* --------------------------------------------------------------------------
-   Falling beans — real meshes, in front of and behind the plate
-   -------------------------------------------------------------------------- */
-
-type Bean = {
-  x: number;
-  z: number;
-  offset: number;
-  speed: number;
-  spin: THREE.Vector3;
-  tilt: THREE.Euler;
-  scale: number;
-  sway: number;
-  phase: number;
-};
-
-function makeBeans(count: number, seed: number): Bean[] {
-  let state = seed >>> 0;
-  const random = () => {
-    state = (state * 1664525 + 1013904223) >>> 0;
-    return state / 0x100000000;
-  };
-
-  return Array.from({ length: count }, (_, i) => {
-    // Half the swarm falls in front of the plate, half behind it. That is
-    // what sells the photograph as being *in* the scene rather than behind
-    // a layer of decoration.
-    const front = i % 2 === 0;
-    const z = front ? 0.35 + random() * 1.5 : -2.4 - random() * 1.4;
-    const distance = THREE.MathUtils.mapLinear(z, -3.8, 1.85, 0.4, 1.15);
-
-    return {
-      x: (random() - 0.5) * 5.6,
-      z,
-      offset: random(),
-      speed: (0.09 + random() * 0.15) * distance,
-      spin: new THREE.Vector3(
-        (random() - 0.5) * 1.6,
-        (random() - 0.5) * 2.2,
-        (random() - 0.5) * 1.4
-      ),
-      tilt: new THREE.Euler(random() * Math.PI, random() * Math.PI, random() * Math.PI),
-      scale: (0.05 + random() * 0.05) * distance,
-      sway: 0.1 + random() * 0.28,
-      phase: random() * Math.PI * 2,
-    };
-  });
-}
-
-const TOP = 2.6;
-const BOTTOM = -2.4;
-
-function FallingBeans({
-  count,
-  pointer,
-}: {
-  count: number;
-  pointer: React.RefObject<THREE.Vector2>;
-}) {
-  const mesh = useRef<THREE.InstancedMesh>(null);
-  const beans = useMemo(() => makeBeans(count, 20260922), [count]);
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-
-  useFrame((state) => {
-    const instanced = mesh.current;
-    if (!instanced) return;
-
-    const t = state.clock.elapsedTime;
-    const lean = pointer.current?.x ?? 0;
-
-    for (let i = 0; i < beans.length; i += 1) {
-      const bean = beans[i];
-      const progress = (bean.offset + t * bean.speed) % 1;
-      const y = TOP - progress * (TOP - BOTTOM);
-
-      // Nearer beans parallax further — the same rule the plate follows, so
-      // the two layers agree.
-      const parallax = lean * (0.32 + bean.z * 0.12);
-
-      dummy.position.set(
-        bean.x + Math.sin(t * 0.5 + bean.phase) * bean.sway + parallax,
-        y,
-        bean.z
-      );
-      dummy.rotation.set(
-        bean.tilt.x + t * bean.spin.x,
-        bean.tilt.y + t * bean.spin.y,
-        bean.tilt.z + t * bean.spin.z
-      );
-      dummy.scale.set(bean.scale, bean.scale * 0.68, bean.scale * 0.56);
-      dummy.updateMatrix();
-      instanced.setMatrixAt(i, dummy.matrix);
-    }
-
-    instanced.instanceMatrix.needsUpdate = true;
-  });
-
-  return (
-    <instancedMesh ref={mesh} args={[undefined, undefined, count]} frustumCulled={false}>
-      <sphereGeometry args={[1, 14, 10]} />
-      <meshStandardMaterial
-        color={ESPRESSO}
-        roughness={0.52}
-        metalness={0.1}
-        emissive={MOCHA}
-        emissiveIntensity={0.16}
-      />
-    </instancedMesh>
-  );
-}
-
-/* --------------------------------------------------------------------------
-   Steam
-   -------------------------------------------------------------------------- */
-
-const STEAM_VERTEX = /* glsl */ `
-  uniform float uTime;
-  uniform float uPhase;
-  varying vec2 vUv;
-
-  void main() {
-    vUv = uv;
-
-    vec3 pos = position;
-    float lift = uv.y;
-    pos.x += sin(uTime * 0.5 + uPhase + lift * 3.2) * 0.18 * lift;
-
-    vec4 centre = modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0);
-    vec4 mvPosition = centre + vec4(pos.x, pos.y, 0.0, 0.0);
-
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const STEAM_FRAGMENT = /* glsl */ `
-  precision highp float;
-
-  uniform float uTime;
-  uniform float uPhase;
-  uniform vec3 uColor;
-  uniform float uOpacity;
-
-  varying vec2 vUv;
-
-  float hash(vec2 p) {
-    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-  }
-
-  float noise(vec2 p) {
-    vec2 i = floor(p);
-    vec2 f = fract(p);
-    vec2 u = f * f * (3.0 - 2.0 * f);
-    return mix(
-      mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-      mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x),
-      u.y
-    );
-  }
-
-  float fbm(vec2 p) {
-    float v = 0.0;
-    float a = 0.5;
-    for (int i = 0; i < 4; i++) {
-      v += a * noise(p);
-      p *= 2.03;
-      a *= 0.5;
-    }
-    return v;
-  }
-
-  void main() {
-    vec2 p = vec2(vUv.x * 2.2, vUv.y * 1.5 - uTime * 0.12 + uPhase);
-    float n = fbm(p);
-
-    float width = mix(0.28, 0.95, vUv.y);
-    float column = 1.0 - smoothstep(0.0, width, abs(vUv.x - 0.5) * 2.0);
-    float rise = smoothstep(0.0, 0.18, vUv.y) * (1.0 - smoothstep(0.22, 0.95, vUv.y));
-
-    float alpha = column * rise * smoothstep(0.42, 0.9, n) * uOpacity;
-
-    gl_FragColor = vec4(uColor, alpha);
-    #include <colorspace_fragment>
-  }
-`;
-
-function SteamPlume({
-  offset,
-  phase,
-  size,
-  opacity,
-}: {
-  offset: [number, number, number];
-  phase: number;
-  size: [number, number];
-  opacity: number;
-}) {
-  const material = useRef<THREE.ShaderMaterial>(null);
-
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uPhase: { value: phase },
-      uColor: { value: new THREE.Color(LATTE) },
-      uOpacity: { value: opacity },
-    }),
-    [phase, opacity]
-  );
-
-  useFrame((_, delta) => {
-    if (material.current) material.current.uniforms.uTime.value += delta;
-  });
-
-  return (
-    <mesh position={offset} renderOrder={3}>
-      <planeGeometry args={[size[0], size[1], 1, 20]} />
-      <shaderMaterial
-        ref={material}
-        vertexShader={STEAM_VERTEX}
-        fragmentShader={STEAM_FRAGMENT}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </mesh>
-  );
-}
-
-/* --------------------------------------------------------------------------
-   Gold dust
-   -------------------------------------------------------------------------- */
-
-function useDotTexture() {
-  const texture = useMemo(() => {
-    const size = 64;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      g.addColorStop(0, "rgba(255,255,255,1)");
-      g.addColorStop(0.3, "rgba(255,255,255,0.5)");
-      g.addColorStop(0.65, "rgba(255,255,255,0.1)");
-      g.addColorStop(1, "rgba(255,255,255,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, size, size);
-    }
-
-    const t = new THREE.CanvasTexture(canvas);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  }, []);
-
-  // Created here, disposed here. A CanvasTexture that outlives its scene is a
-  // small but real GPU leak.
-  useEffect(() => () => texture.dispose(), [texture]);
-
-  return texture;
-}
-
-function GoldDust({ count, pointer }: { count: number; pointer: React.RefObject<THREE.Vector2> }) {
-  const points = useRef<THREE.Points>(null);
-  const map = useDotTexture();
-
-  const { positions, drifts } = useMemo(() => {
-    let state = 8675309 >>> 0;
-    const random = () => {
-      state = (state * 1664525 + 1013904223) >>> 0;
-      return state / 0x100000000;
-    };
-
-    const positions = new Float32Array(count * 3);
-    const drifts = new Float32Array(count * 3);
-
-    for (let i = 0; i < count; i += 1) {
-      positions[i * 3] = (random() - 0.5) * 7.5;
-      positions[i * 3 + 1] = (random() - 0.5) * 4.4;
-      positions[i * 3 + 2] = -1.8 + random() * 3.2;
-
-      drifts[i * 3] = 0.02 + random() * 0.05;
-      drifts[i * 3 + 1] = 0.014 + random() * 0.04;
-      drifts[i * 3 + 2] = random() * Math.PI * 2;
-    }
-
-    return { positions, drifts };
-  }, [count]);
-
-  useFrame((state) => {
-    const node = points.current;
-    if (!node) return;
-
-    const t = state.clock.elapsedTime;
-    const attr = node.geometry.getAttribute("position") as THREE.BufferAttribute;
-    const array = attr.array as Float32Array;
-
-    for (let i = 0; i < count; i += 1) {
-      const phase = drifts[i * 3 + 2];
-      array[i * 3] = positions[i * 3] + Math.sin(t * drifts[i * 3] + phase) * 0.55;
-      array[i * 3 + 1] = positions[i * 3 + 1] + Math.cos(t * drifts[i * 3 + 1] + phase) * 0.42;
-    }
-
-    attr.needsUpdate = true;
-
-    const target = pointer.current;
-    if (target) {
-      node.position.x += (target.x * 0.4 - node.position.x) * 0.02;
-      node.position.y += (target.y * 0.26 - node.position.y) * 0.02;
-    }
-  });
-
-  return (
-    <points ref={points} frustumCulled={false} renderOrder={4}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-      </bufferGeometry>
-      <pointsMaterial
-        map={map}
-        color={GOLD}
-        size={0.07}
-        sizeAttenuation
-        transparent
-        opacity={0.5}
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-      />
-    </points>
   );
 }
 
@@ -781,25 +468,19 @@ export default function HeroScene({ tier }: { tier: SceneTier }) {
           <RenderGate active={active} />
           <CameraRig pointer={pointer} />
 
-          {/* Lighting matched to the photograph: warm key from upper right,
-              brass rim from behind, almost no fill. */}
-          <ambientLight intensity={0.4} color={MOCHA} />
-          <directionalLight position={[3, 4, 3]} intensity={1.7} color="#ffdcae" />
-          <directionalLight position={[-3, 1.5, -2]} intensity={2.3} color={GOLD} />
+          {/* No lights: the plate is a ShaderMaterial and does its own
+              grading, so lamps in the scene would cost uniforms and change
+              nothing on screen. */}
 
+          {/* The photograph, and nothing in front of it.
+              An earlier pass threw instanced beans and steam plumes across
+              the cup. They read as clutter over a picture that already has
+              its own splash and grounds, and they were the one thing that
+              differed between the flat first paint and the WebGL scene — so
+              removing them also makes the handover invisible. The depth
+              displacement, the parallax and the brass sheen are what make
+              this three-dimensional; the confetti never was. */}
           <DepthPlate pointer={pointer} tier={tier} />
-
-          <group position={[0.9, 0, 0]}>
-            <FallingBeans count={full ? 28 : 12} pointer={pointer} />
-
-            <SteamPlume offset={[-0.08, 0.95, 0.6]} phase={0} size={[1.0, 2.0]} opacity={0.5} />
-            <SteamPlume offset={[0.2, 1.15, 0.45]} phase={2.1} size={[0.8, 2.3]} opacity={0.36} />
-            {full ? (
-              <SteamPlume offset={[0.04, 0.85, 0.8]} phase={4.3} size={[1.2, 1.8]} opacity={0.26} />
-            ) : null}
-          </group>
-
-          <GoldDust count={full ? 90 : 40} pointer={pointer} />
         </Suspense>
       </Canvas>
     </div>

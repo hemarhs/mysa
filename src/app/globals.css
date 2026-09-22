@@ -173,6 +173,16 @@
     overflow-x: hidden;
   }
 
+  /* The admin area is a light room inside a dark building.
+     `scrollbar-gutter: stable` reserves a strip beside the page that paints
+     the canvas background — which is the dark one — leaving an espresso band
+     down the side of a cream admin panel. Repainting the canvas for that one
+     subtree fixes it without a second <body>. */
+  html:has(#admin-root) {
+    background-color: var(--color-cream);
+    background-image: none;
+  }
+
   ::selection {
     background-color: var(--color-gold);
     color: var(--color-espresso);

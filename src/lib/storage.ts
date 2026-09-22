@@ -1,6 +1,6 @@
 import "server-only";
 
-import { env } from "./env";
+import { BLOB_SETUP_MESSAGE, blobStorageReady, env } from "./env";
 
 /**
  * Image uploads sit behind this interface so the storage backend is a
@@ -50,6 +50,12 @@ export async function uploadImage(file: File, prefix = "gallery"): Promise<Uploa
     return { url: `/uploads/${key}`, key };
   }
 
+  if (!blobStorageReady()) {
+    // Checked here rather than at module load, so a deploy without a Blob
+    // store still builds and serves every public page.
+    throw new UploadError(BLOB_SETUP_MESSAGE);
+  }
+
   const { put } = await import("@vercel/blob");
   const blob = await put(key, file, {
     access: "public",
@@ -70,6 +76,8 @@ export async function deleteImage(key: string | null | undefined) {
       await unlink(join(process.cwd(), "public", "uploads", key));
       return;
     }
+
+    if (!blobStorageReady()) return;
 
     const { del } = await import("@vercel/blob");
     await del(key, { token: env.BLOB_READ_WRITE_TOKEN });

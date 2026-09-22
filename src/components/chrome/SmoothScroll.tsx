@@ -1,50 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { usePathname } from "next/navigation";
 
 import { prefersReducedMotion } from "@/lib/motion";
 
 /**
- * Lenis smooth scrolling, wired to GSAP's ticker and to ScrollTrigger.
+ * Lenis smooth scrolling.
  *
- * Why the wiring matters: Lenis moves the page with a transform-free
- * `scrollTo`, but it runs on its own rAF loop by default. Two independent
- * loops — Lenis's and GSAP's — produce the classic "pinned section lags one
- * frame behind the scroll" jitter. Driving Lenis *from* GSAP's ticker puts
- * scroll position and every ScrollTrigger on the same frame, which is what
- * makes pinned storytelling feel welded to the page rather than chased.
+ * Lenis runs its own requestAnimationFrame loop here. An earlier version drove
+ * it from GSAP's ticker so that ScrollTrigger and Lenis shared a frame — but
+ * nothing on this site uses ScrollTrigger any more (the one pinned section is
+ * plain `position: sticky`), so GSAP was a 70KB dependency being carried for a
+ * single line of plumbing. It is gone.
  *
  * Everything here is guarded:
- *   • the import of gsap/ScrollTrigger is dynamic, so it never runs on the
- *     server and never lands in the initial bundle;
- *   • reduced-motion visitors get native scrolling, untouched;
- *   • on unmount every ticker callback, listener and ScrollTrigger created
- *     here is removed, so a route change cannot leave two Lenis instances
- *     fighting over the same document.
+ *   • the Lenis import is dynamic, so it never runs on the server and never
+ *     lands in the initial bundle;
+ *   • reduced-motion visitors and touch devices get native scrolling,
+ *     untouched — a phone already has momentum scrolling from the OS, and
+ *     hijacking it is how a site starts feeling sticky;
+ *   • on unmount every listener and the instance itself are disposed, so a
+ *     route change cannot leave two Lenis instances fighting over one
+ *     document;
+ *   • if the chunk fails to load, the page still scrolls natively. Smooth
+ *     scrolling is an enhancement, never a requirement.
  */
 export function SmoothScroll({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
   useEffect(() => {
     if (prefersReducedMotion()) return;
-    // Coarse pointers already have momentum scrolling from the OS, and
-    // hijacking it on a phone is how a site starts feeling "sticky".
     if (window.matchMedia("(pointer: coarse)").matches) return;
 
     let cancelled = false;
     let cleanup: (() => void) | undefined;
 
     (async () => {
-      const [{ default: Lenis }, { gsap }, { ScrollTrigger }] = await Promise.all([
-        import("lenis"),
-        import("gsap"),
-        import("gsap/ScrollTrigger"),
-      ]);
-
+      const { default: Lenis } = await import("lenis");
       if (cancelled) return;
-
-      gsap.registerPlugin(ScrollTrigger);
 
       const lenis = new Lenis({
         duration: 1.15,
@@ -58,21 +49,14 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
       document.documentElement.classList.add("lenis");
 
-      const onLenisScroll = () => ScrollTrigger.update();
-      lenis.on("scroll", onLenisScroll);
+      let frame = 0;
+      const raf = (time: number) => {
+        lenis.raf(time);
+        frame = window.requestAnimationFrame(raf);
+      };
+      frame = window.requestAnimationFrame(raf);
 
-      // GSAP's ticker is in seconds; Lenis wants milliseconds.
-      const raf = (time: number) => lenis.raf(time * 1000);
-      gsap.ticker.add(raf);
-      gsap.ticker.lagSmoothing(0);
-
-      // Lenis scrolls the real document, so ScrollTrigger needs no proxy —
-      // it only needs to be updated on the same frame, which the listener
-      // above does. (A scrollerProxy here is the usual cause of pinned
-      // sections measuring against the wrong scroller.)
-      ScrollTrigger.refresh();
-
-      // Anchor links (the menu rail) must go through Lenis, or the page
+      // Anchor links (the menu rail) have to go through Lenis, or the browser
       // jumps and Lenis then fights it back.
       const onAnchorClick = (event: MouseEvent) => {
         if (event.defaultPrevented || event.button !== 0) return;
@@ -95,15 +79,15 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
 
       cleanup = () => {
         document.removeEventListener("click", onAnchorClick);
-        lenis.off("scroll", onLenisScroll);
-        gsap.ticker.remove(raf);
-        gsap.ticker.lagSmoothing(500, 33);
+        window.cancelAnimationFrame(frame);
         lenis.destroy();
-        document.documentElement.classList.remove("lenis", "lenis-smooth", "lenis-stopped");
+        document.documentElement.classList.remove(
+          "lenis",
+          "lenis-smooth",
+          "lenis-stopped"
+        );
       };
     })().catch((error) => {
-      // Smooth scrolling is an enhancement. If the chunk fails to load the
-      // page must still scroll, so this is logged and swallowed.
       console.warn("[mysa] smooth scroll unavailable:", error);
     });
 
@@ -112,24 +96,6 @@ export function SmoothScroll({ children }: { children: React.ReactNode }) {
       cleanup?.();
     };
   }, []);
-
-  // A route change replaces the document height; ScrollTrigger has to be told,
-  // or every pinned section on the new page measures against the old one.
-  useEffect(() => {
-    let cancelled = false;
-    const id = window.setTimeout(() => {
-      import("gsap/ScrollTrigger")
-        .then(({ ScrollTrigger }) => {
-          if (!cancelled) ScrollTrigger.refresh();
-        })
-        .catch(() => {});
-    }, 180);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(id);
-    };
-  }, [pathname]);
 
   return <>{children}</>;
 }

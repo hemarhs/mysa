@@ -73,7 +73,10 @@ export function HeroStage() {
       {/* --- Flat plate: first paint, and the permanent fallback ---------- */}
       <div
         className={cn(
-          "absolute inset-y-0 right-0 w-full transition-opacity duration-[1500ms] ease-[cubic-bezier(0.16,1,0.3,1)] md:w-[70%] lg:w-[64%]",
+          // PLATE_WIDTH below is the single source of truth for this box's
+          // width; the WebGL plate is sized from the same constant, so the
+          // two crops cannot drift apart.
+          "absolute inset-y-0 right-0 w-full transition-opacity duration-[1500ms] ease-[cubic-bezier(0.16,1,0.3,1)] md:w-[64%]",
           sceneVisible ? "opacity-0" : "opacity-100"
         )}
       >
@@ -96,7 +99,7 @@ export function HeroStage() {
             fill
             priority
             fetchPriority="high"
-            sizes="(max-width: 768px) 100vw, 70vw"
+            sizes="(max-width: 768px) 100vw, 64vw"
             placeholder="blur"
             blurDataURL={BLUR}
             onLoad={() => setPlateLoaded(true)}
