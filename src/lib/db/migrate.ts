@@ -30,7 +30,7 @@ main().catch((error) => {
   if (/fetch failed|ENOTFOUND|EAI_AGAIN|network/i.test(text)) {
     console.error(
       "\nThe database could not be reached, even after retrying.\n" +
-        "  • Check the connection with:  node --env-file=.env.local netcheck.mjs\n" +
+        "  • Check the connection with:  node --env-file=.env.local scripts/netcheck.mjs\n" +
         "  • Flush DNS:                  ipconfig /flushdns\n" +
         "  • Disconnect any VPN, or try a phone hotspot."
     );

@@ -241,7 +241,7 @@ Security headers (HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
 or cannot be reached. Run the bundled diagnostic from the project root:
 
 ```bash
-node --env-file=.env.local diagnose.mjs
+node --env-file=.env.local scripts/diagnose.mjs
 ```
 
 It reports the connection, every table and row count, and which photograph URLs
@@ -250,7 +250,7 @@ resolve. Nothing secret is printed. The usual fixes it points to are
 
 **A photograph slot shows a warm brown panel.** That image URL is dead, or has
 not loaded yet. Every photograph is declared in `src/lib/photo-sources.json`;
-`diagnose.mjs` names any that fail. The panel is the intended fallback, not a
+`scripts/diagnose.mjs` names any that fail. The panel is the intended fallback, not a
 rendering bug — but if *every* slot shows it while the diagnostic reports all
 photographs loading, that is a rendering bug, so say so.
 
@@ -260,7 +260,7 @@ Every database call already retries five times with exponential backoff
 Diagnose it with:
 
 ```bash
-node --env-file=.env.local netcheck.mjs
+node --env-file=.env.local scripts/netcheck.mjs
 ```
 
 That separates a DNS or firewall problem from a credentials problem. A stale

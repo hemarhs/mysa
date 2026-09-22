@@ -123,7 +123,7 @@ main().catch((error) => {
   } else if (/fetch failed|ENOTFOUND|network/i.test(message)) {
     console.error(
       "\nThe database could not be reached. Check it with:\n" +
-        "  node --env-file=.env.local netcheck.mjs\n"
+        "  node --env-file=.env.local scripts/netcheck.mjs\n"
     );
   } else {
     console.error("");
