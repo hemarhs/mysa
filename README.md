@@ -30,7 +30,7 @@ Sign in at `/admin/login`.
 | `AUTH_SECRET` | yes | 32+ characters, used to sign admin session cookies. Generate with `openssl rand -base64 48` |
 | `NEXT_PUBLIC_SITE_URL` | yes in production | Public origin, used for canonical URLs, sitemap and OG tags |
 | `STORAGE_PROVIDER` | no | `blob` (default) or `local` |
-| `BLOB_READ_WRITE_TOKEN` | in production | Vercel Blob token; injected automatically when a Blob store is connected on Vercel |
+| `BLOB_READ_WRITE_TOKEN` | only to upload image **files** | Vercel Blob token; injected automatically when a Blob store is connected on Vercel |
 
 Configuration is validated at boot in `src/lib/env.ts` — a missing or malformed
 value fails immediately with a readable message rather than at the first query.
@@ -43,11 +43,31 @@ Built for Vercel.
 
 1. Import the repository; the framework preset is detected automatically.
 2. Add the environment variables above in **Project → Settings → Environment Variables**.
-3. Connect a **Blob** store under **Storage** — this injects `BLOB_READ_WRITE_TOKEN`
-   and makes admin image uploads work.
-4. Run `npm run db:migrate`, `npm run db:seed` and `npm run db:create-admin`
-   locally against the production `DATABASE_URL` once, before or just after the
-   first deploy.
+3. Point `DATABASE_URL` at the Neon branch you want production to read. The
+   Neon integration sets this for you, but check *which* branch it chose — a
+   Neon project can hold several, and the one it picks may be empty.
+4. Against that branch, run `npm run db:migrate` and `npm run db:create-admin`
+   once. Add `npm run db:seed` only if the branch is empty: **the seed deletes
+   and replaces every menu item, category, gallery image and opening hour**, so
+   running it on a branch you have curated through the admin panel throws that
+   work away.
+
+### Blob storage is optional
+
+The site and the whole admin panel run without it. Everything except one
+control works: sign-in, the menu editor, hours, reservations, messages, and
+adding gallery images by pasting an **Image URL**.
+
+The one thing it buys is uploading image *files* from your machine. If you want
+that, connect a **Blob** store under **Storage** — Vercel injects
+`BLOB_READ_WRITE_TOKEN` and leaves `STORAGE_PROVIDER` at its default of `blob`.
+Without a store connected, the upload control reports that storage is not
+configured and the rest of the panel carries on unaffected; the build itself
+never fails over it.
+
+Do not set `STORAGE_PROVIDER="local"` on Vercel. Uploads would be written to the
+serverless filesystem, which is discarded when the instance recycles — the files
+disappear, quietly, some time after they appear to have worked.
 
 It runs anywhere Next.js runs. If you move off Vercel, replace the Vercel Blob
 branch in `src/lib/storage.ts` with an S3 client — that file is the only place
@@ -241,7 +261,7 @@ Security headers (HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
 or cannot be reached. Run the bundled diagnostic from the project root:
 
 ```bash
-node --env-file=.env.local scripts/diagnose.mjs
+node --env-file=.env.local diagnose.mjs
 ```
 
 It reports the connection, every table and row count, and which photograph URLs
@@ -250,7 +270,7 @@ resolve. Nothing secret is printed. The usual fixes it points to are
 
 **A photograph slot shows a warm brown panel.** That image URL is dead, or has
 not loaded yet. Every photograph is declared in `src/lib/photo-sources.json`;
-`scripts/diagnose.mjs` names any that fail. The panel is the intended fallback, not a
+`diagnose.mjs` names any that fail. The panel is the intended fallback, not a
 rendering bug — but if *every* slot shows it while the diagnostic reports all
 photographs loading, that is a rendering bug, so say so.
 
@@ -260,13 +280,15 @@ Every database call already retries five times with exponential backoff
 Diagnose it with:
 
 ```bash
-node --env-file=.env.local scripts/netcheck.mjs
+node --env-file=.env.local netcheck.mjs
 ```
 
 That separates a DNS or firewall problem from a credentials problem. A stale
 Windows DNS cache is the usual cause — `ipconfig /flushdns` and retry. A VPN is
 the next most likely.
 
-**Admin uploads fail.** In development set `STORAGE_PROVIDER="local"` and they
-write to `public/uploads`. In production connect a Vercel Blob store so
-`BLOB_READ_WRITE_TOKEN` is set, and use `STORAGE_PROVIDER="blob"`.
+**Admin uploads fail.** Expected, until a Blob store is connected — nothing
+else in the panel is affected, and gallery images can still be added by URL. In
+development, set `STORAGE_PROVIDER="local"` and uploads write to
+`public/uploads`. In production, connect a Vercel Blob store so
+`BLOB_READ_WRITE_TOKEN` is set and leave `STORAGE_PROVIDER` at `blob`.
